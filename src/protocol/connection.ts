@@ -376,7 +376,7 @@ export class Connection {
     this.cb.onCamera?.({ x, y });
   }
 
-  private parseBorder(r: Reader, totalLen: number) {
+  private parseBorder(r: Reader, _totalLen: number) {
     const left = r.readFloat64();
     const top = r.readFloat64();
     const right = r.readFloat64();
@@ -399,7 +399,7 @@ export class Connection {
   }
 
   private parseChatRecv(r: Reader) {
-    const _flags = r.readUint8();
+    r.readUint8(); // flags (reserved)
     const red = r.readUint8();
     const green = r.readUint8();
     const blue = r.readUint8();

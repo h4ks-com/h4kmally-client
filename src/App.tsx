@@ -11,7 +11,6 @@ import { Chat } from "./components/Chat";
 import { Options } from "./components/Options";
 import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
-import { TokenReveal } from "./components/TokenReveal";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -77,7 +76,7 @@ function GameApp() {
   const [xpCurrent, setXpCurrent] = useState(0);
   const [xpNeeded, setXpNeeded] = useState(1);
   const [pendingTokens, setPendingTokens] = useState<Array<{skinName: string}>>([]);
-  const [showTokenReveal, setShowTokenReveal] = useState(false);
+  const [, setShowTokenReveal] = useState(false);
   const tokenRevealShownRef = useRef(false);
   const [levelUpText, setLevelUpText] = useState<string | null>(null);
 

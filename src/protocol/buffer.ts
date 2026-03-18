@@ -119,6 +119,6 @@ export class Writer {
 
   /** Return a trimmed copy of the written data. */
   build(): ArrayBuffer {
-    return this.buf.buffer.slice(0, this.offset);
+    return this.buf.buffer.slice(0, this.offset) as ArrayBuffer;
   }
 }

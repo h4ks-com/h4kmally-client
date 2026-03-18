@@ -1,3 +1,4 @@
+import React from "react";
 import { GameState } from "../game";
 import "./Minimap.css";
 
@@ -21,8 +22,8 @@ export function Minimap({ state }: MinimapProps) {
   const cellH = MINIMAP_SIZE / rows;
 
   // Build grid lines + labels
-  const gridLines: JSX.Element[] = [];
-  const gridLabels: JSX.Element[] = [];
+  const gridLines: React.JSX.Element[] = [];
+  const gridLabels: React.JSX.Element[] = [];
 
   // Vertical lines
   for (let c = 1; c < cols; c++) {
