@@ -1,0 +1,92 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: default;
+}
+
+.settings-btn {
+  position: fixed;
+  top: 10px;
+  right: 200px;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 1.4rem;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.settings-btn:hover {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+/* ── Spectator overlay ── */
+.spectator-overlay {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.spectator-eyes {
+  font-size: 2.4rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+
+.spectator-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-family: Arial, sans-serif;
+}
+
+.spectator-godmode {
+  pointer-events: auto;
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.spectator-godmode:hover {
+  background: rgba(0, 0, 0, 0.7);
+}

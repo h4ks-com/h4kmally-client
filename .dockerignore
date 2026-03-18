@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+*.log
+.env
+.dev-server.pid
+.vscode
+.idea
+.DS_Store
