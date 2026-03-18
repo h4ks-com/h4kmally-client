@@ -274,9 +274,12 @@ export class Renderer {
     ctx.strokeRect(left, top, right - left, bottom - top);
   }
 
+  private sortedCells: GameCell[] = [];
+
   private drawCells(ctx: CanvasRenderingContext2D) {
     // Sort cells by size (smallest first → drawn first → below larger cells)
-    const sorted: GameCell[] = [];
+    const sorted = this.sortedCells;
+    sorted.length = 0;
     for (const cell of this.state.cells.values()) {
       sorted.push(cell);
     }
@@ -376,15 +379,16 @@ export class Renderer {
     // Simulate spring-mass jelly physics
     const n = pts.length;
     if (n > 0) {
-      const oldVel = vel.slice();
-
       // Smooth velocities with neighbors + random perturbation
+      // Use two-pass approach to avoid allocation: read prev before overwrite
+      let prevVel = vel[(n - 1) % n];
       for (let i = 0; i < n; i++) {
-        const prev = oldVel[(i - 1 + n) % n];
-        const next = oldVel[(i + 1) % n];
+        const nextVel = vel[(i + 1) % n];
         let v = 0.7 * (vel[i] + Math.random() - 0.5);
         v = Math.max(Math.min(v, 10), -10);
-        vel[i] = (prev + next + 8 * v) / 10;
+        const newV = (prevVel + nextVel + 8 * v) / 10;
+        prevVel = vel[i];
+        vel[i] = newV;
       }
 
       // Apply velocity to radius, smooth with neighbors, pull toward rest size
@@ -468,65 +472,12 @@ export class Renderer {
   /** Draw food/eject as a simple circle (fast — no wobble needed for tiny cells). */
   private drawFoodCell(
     ctx: CanvasRenderingContext2D,
-    cell: GameCell,
+    _cell: GameCell,
     drawSize: number,
     r: number, g: number, b: number,
   ) {
-    // Same spring-mass jelly as player cells
-    let targetPts = Math.round(drawSize * this.camZoom);
-    targetPts = Math.max(JELLY_POINTS_MIN, Math.min(JELLY_POINTS_MAX, targetPts));
-
-    const pts = cell.jellyPoints;
-    const vel = cell.jellyVel;
-
-    while (pts.length > targetPts) {
-      const idx = (Math.random() * pts.length) | 0;
-      pts.splice(idx, 1);
-      vel.splice(idx, 1);
-    }
-    if (pts.length === 0 && targetPts > 0) {
-      pts.push(drawSize);
-      vel.push(Math.random() - 0.5);
-    }
-    while (pts.length < targetPts) {
-      const idx = (Math.random() * pts.length) | 0;
-      pts.splice(idx, 0, pts[idx]);
-      vel.splice(idx, 0, vel[idx]);
-    }
-
-    const n = pts.length;
-    if (n > 0) {
-      const oldVel = vel.slice();
-      for (let i = 0; i < n; i++) {
-        const prev = oldVel[(i - 1 + n) % n];
-        const next = oldVel[(i + 1) % n];
-        let v = 0.7 * (vel[i] + Math.random() - 0.5);
-        v = Math.max(Math.min(v, 10), -10);
-        vel[i] = (prev + next + 8 * v) / 10;
-      }
-      for (let i = 0; i < n; i++) {
-        let rl = pts[i];
-        rl += vel[i];
-        rl = Math.max(rl, 0);
-        rl = (9 * rl + drawSize) / 10;
-        const left = pts[(i - 1 + n) % n];
-        const right = pts[(i + 1) % n];
-        pts[i] = (left + right + 8 * rl) / 10;
-      }
-    }
-
     ctx.beginPath();
-    if (n > 0) {
-      for (let i = 0; i < n; i++) {
-        const angle = PI2 * i / n;
-        const px = Math.cos(angle) * pts[i];
-        const py = Math.sin(angle) * pts[i];
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-    } else {
-      ctx.arc(0, 0, drawSize, 0, PI2);
-    }
+    ctx.arc(0, 0, drawSize, 0, PI2);
     ctx.closePath();
     ctx.fillStyle = `rgb(${r},${g},${b})`;
     ctx.fill();

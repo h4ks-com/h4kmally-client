@@ -55,6 +55,7 @@ function GameApp() {
   const mouseIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSpawnRef = useRef<{ name: string; skin: string }>({ name: "unnamed", skin: "" });
   const wsBaseUrlRef = useRef<string>("");
+  const prevScoreRef = useRef<number>(0);
 
   // UI state
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
@@ -182,7 +183,11 @@ function GameApp() {
       },
       onWorldUpdate: (ev) => {
         gs.onWorldUpdate(ev);
-        setScore(gs.score);
+        const newScore = gs.score;
+        if (newScore !== prevScoreRef.current) {
+          prevScoreRef.current = newScore;
+          setScore(newScore);
+        }
       },
       onCamera: (cam) => gs.onCamera(cam),
       onBorder: (b) => gs.onBorder(b),
