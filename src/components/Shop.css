@@ -208,3 +208,20 @@
   font-size: 0.75rem;
   color: #888;
 }
+
+.shop-order-cancel {
+  margin-left: 0.5rem;
+  background: transparent;
+  border: 1px solid #c44;
+  color: #c44;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.shop-order-cancel:hover {
+  background: #c44;
+  color: #fff;
+}

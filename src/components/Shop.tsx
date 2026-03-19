@@ -100,6 +100,28 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
     }
   }, [serverBaseUrl, sessionToken, fetchShopData]);
 
+  const handleCancel = useCallback(async (orderId: string) => {
+    setError(null);
+    try {
+      const resp = await fetch(
+        `${serverBaseUrl}/api/shop/cancel?session=${encodeURIComponent(sessionToken)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        }
+      );
+      if (!resp.ok) {
+        const data = await resp.json();
+        setError(data.error || "Cancel failed");
+        return;
+      }
+      fetchShopData();
+    } catch {
+      setError("Failed to cancel order");
+    }
+  }, [serverBaseUrl, sessionToken, fetchShopData]);
+
   const pendingOrders = orders.filter(o => o.status === "pending");
   const completedOrders = orders.filter(o => o.status === "completed");
 
@@ -153,6 +175,11 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
                     <span className="shop-order-tokens">{order.tokens} tokens</span>
                     <span className="shop-order-amount">🫘 {order.amount}</span>
                     <span className="shop-order-status">Waiting for payment...</span>
+                    <button
+                      className="shop-order-cancel"
+                      onClick={() => handleCancel(order.id)}
+                      title="Cancel this order"
+                    >✕</button>
                   </div>
                 ))}
               </div>
