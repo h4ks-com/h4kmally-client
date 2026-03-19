@@ -33,6 +33,7 @@ interface LobbyProps {
   onSignOut: () => void;
   isAdmin: boolean;
   onOpenAdmin: () => void;
+  onOpenShop: () => void;
   sessionToken: string | null;
   userLevel: number;
   xpCurrent: number;
@@ -60,6 +61,7 @@ export function Lobby({
   onSignOut,
   isAdmin,
   onOpenAdmin,
+  onOpenShop,
   sessionToken,
   userLevel,
   xpCurrent,
@@ -205,6 +207,12 @@ export function Lobby({
             </svg>
             {isAuthenticated ? "Sign out" : "Sign in"}
           </button>
+
+          {isAuthenticated && (
+            <button className="btn-shop" onClick={onOpenShop}>
+              🛒 Token Shop
+            </button>
+          )}
 
           {isAdmin && (
             <button className="btn-admin" onClick={onOpenAdmin}>

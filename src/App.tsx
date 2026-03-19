@@ -11,6 +11,8 @@ import { Chat } from "./components/Chat";
 import { Options } from "./components/Options";
 import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
+import { Shop } from "./components/Shop";
+import { DailyGift } from "./components/DailyGift";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -64,6 +66,7 @@ function GameApp() {
   const [showLobby, setShowLobby] = useState(true);
   const [showOptions, setShowOptions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const [score, setScore] = useState(0);
   const [latency, setLatency] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -493,6 +496,10 @@ function GameApp() {
     setShowAdmin(true);
   }, []);
 
+  const handleOpenShop = useCallback(() => {
+    setShowShop(true);
+  }, []);
+
   const handleChatSend = useCallback((text: string) => {
     const conn = connRef.current;
     if (conn) conn.sendChat(text);
@@ -545,6 +552,7 @@ function GameApp() {
           displayPicture={displayPicture}
           isAdmin={!!userProfile?.isAdmin}
           onOpenAdmin={handleOpenAdmin}
+          onOpenShop={handleOpenShop}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           sessionToken={sessionToken}
@@ -598,6 +606,21 @@ function GameApp() {
           serverBaseUrl={serverBaseUrl}
           sessionToken={sessionToken}
           onClose={() => setShowAdmin(false)}
+        />
+      )}
+
+      {showShop && serverBaseUrl && sessionToken && (
+        <Shop
+          serverBaseUrl={serverBaseUrl}
+          sessionToken={sessionToken}
+          onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {isAuthenticated && serverBaseUrl && sessionToken && showLobby && (
+        <DailyGift
+          serverBaseUrl={serverBaseUrl}
+          sessionToken={sessionToken}
         />
       )}
 

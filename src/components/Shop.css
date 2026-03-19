@@ -1,0 +1,210 @@
+.shop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.shop-panel {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px;
+  color: #eee;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.shop-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.shop-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.8rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+}
+.shop-close:hover {
+  color: #fff;
+}
+
+.shop-desc {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.shop-loading {
+  text-align: center;
+  padding: 40px 0;
+  color: #666;
+}
+
+.shop-error {
+  background: rgba(255, 50, 50, 0.15);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  color: #f66;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.shop-success {
+  background: rgba(50, 200, 100, 0.15);
+  border: 1px solid rgba(50, 200, 100, 0.3);
+  color: #4d4;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+/* Shop items grid */
+.shop-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: border-color 0.2s;
+}
+.shop-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.shop-item-tokens {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.shop-item-count {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f0c040;
+}
+
+.shop-item-label {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shop-item-price {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-item-beans {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.shop-item-currency {
+  font-size: 0.7rem;
+  color: #888;
+}
+
+.shop-item-buy {
+  background: linear-gradient(135deg, #4a7fff, #3366dd);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.shop-item-buy:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a8fff, #4477ee);
+  transform: scale(1.02);
+}
+.shop-item-buy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Orders section */
+.shop-orders {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shop-orders h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.shop-orders-hint {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.shop-order {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.shop-order.pending {
+  background: rgba(255, 200, 50, 0.1);
+  border: 1px solid rgba(255, 200, 50, 0.2);
+}
+.shop-order.completed {
+  background: rgba(50, 200, 100, 0.1);
+  border: 1px solid rgba(50, 200, 100, 0.2);
+}
+
+.shop-order-tokens {
+  font-weight: 600;
+  color: #f0c040;
+}
+
+.shop-order-amount {
+  color: #aaa;
+}
+
+.shop-order-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #888;
+}
