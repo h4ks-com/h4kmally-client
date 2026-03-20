@@ -6,6 +6,8 @@ import {
   CLIENT_MOUSE,
   CLIENT_SPLIT,
   CLIENT_EJECT,
+  CLIENT_MULTIBOX_TOGGLE,
+  CLIENT_MULTIBOX_SWITCH,
   CLIENT_CHAT,
   CLIENT_SPECTATE,
   CLIENT_SPECTATOR_CMD,
@@ -14,7 +16,9 @@ import {
   SERVER_CAMERA,
   SERVER_CLEAR_ALL,
   SERVER_CLEAR_MINE,
+  SERVER_MULTIBOX_STATE,
   SERVER_ADD_MY_CELL,
+  SERVER_ADD_MULTI_CELL,
   SERVER_LEADERBOARD_FFA,
   SERVER_BORDER,
   SERVER_CHAT,
@@ -36,6 +40,7 @@ export interface CellUpdate {
   color?: { r: number; g: number; b: number };
   skin?: string;
   name?: string;
+  effect?: string;
 }
 
 export interface EatEvent {
@@ -76,6 +81,12 @@ export interface ChatMessage {
 
 export type ConnectionState = "disconnected" | "connecting" | "connected";
 
+export interface MultiboxState {
+  enabled: boolean;
+  activeSlot: number; // 0 = primary, 1 = multi
+  multiAlive: boolean;
+}
+
 // ── Callbacks ────────────────────────────────────────────────
 
 export interface ConnectionCallbacks {
@@ -84,12 +95,14 @@ export interface ConnectionCallbacks {
   onCamera?: (cam: Camera) => void;
   onBorder?: (b: Border) => void;
   onAddMyCell?: (id: number) => void;
+  onAddMultiCell?: (id: number) => void;
   onClearAll?: () => void;
   onClearMine?: () => void;
   onLeaderboard?: (entries: LeaderboardEntry[]) => void;
   onSpawnResult?: (accepted: boolean) => void;
   onChat?: (msg: ChatMessage) => void;
   onPingReply?: (latency: number) => void;
+  onMultiboxState?: (state: MultiboxState) => void;
 }
 
 // ── Connection ───────────────────────────────────────────────
@@ -170,9 +183,9 @@ export class Connection {
 
   // ── Send helpers ─────────────────────────────────────────
 
-  sendSpawn(name: string, skin: string = "") {
+  sendSpawn(name: string, skin: string = "", effect: string = "") {
     if (!this.shuffle || !this.ws) return;
-    const json = JSON.stringify({ name, skin, showClanmates: true, token: "", email: "" });
+    const json = JSON.stringify({ name, skin, effect, showClanmates: true, token: "", email: "" });
     const w = new Writer(128);
     w.writeUint8(this.shuffle.encode(CLIENT_SPAWN));
     w.writeStringUTF8(json);
@@ -233,6 +246,22 @@ export class Connection {
     const buf = new Uint8Array(2);
     buf[0] = this.shuffle.encode(CLIENT_SPECTATOR_CMD);
     buf[1] = 0x02;
+    this.ws.send(buf.buffer);
+  }
+
+  /** Toggle multibox on/off. */
+  sendMultiboxToggle() {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(1);
+    buf[0] = this.shuffle.encode(CLIENT_MULTIBOX_TOGGLE);
+    this.ws.send(buf.buffer);
+  }
+
+  /** Switch active multibox slot (Tab). */
+  sendMultiboxSwitch() {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(1);
+    buf[0] = this.shuffle.encode(CLIENT_MULTIBOX_SWITCH);
     this.ws.send(buf.buffer);
   }
 
@@ -297,6 +326,16 @@ export class Connection {
       case SERVER_ADD_MY_CELL:
         this.cb.onAddMyCell?.(r.readUint32());
         break;
+      case SERVER_ADD_MULTI_CELL:
+        this.cb.onAddMultiCell?.(r.readUint32());
+        break;
+      case SERVER_MULTIBOX_STATE:
+        this.cb.onMultiboxState?.({
+          enabled: r.readUint8() === 1,
+          activeSlot: r.readUint8(),
+          multiAlive: r.readUint8() === 1,
+        });
+        break;
       case SERVER_LEADERBOARD_FFA:
         this.parseLeaderboard(r);
         break;
@@ -354,6 +393,9 @@ export class Connection {
       }
       if (flags & 0x08) {
         cell.name = r.readStringUTF8();
+      }
+      if (flags & 0x10) {
+        cell.effect = r.readStringUTF8();
       }
 
       cells.push(cell);

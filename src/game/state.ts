@@ -14,6 +14,7 @@ export interface GameCell {
   color: { r: number; g: number; b: number };
   skin: string;
   name: string;
+  effect: string;
 
   // Interpolation targets
   targetX: number;
@@ -43,6 +44,7 @@ const CHAT_DISPLAY_DURATION = 10000; // 10s
 export class GameState {
   cells: Map<number, GameCell> = new Map();
   myCellIds: Set<number> = new Set();
+  multiCellIds: Set<number> = new Set();
   border: Border = { left: -7071, top: -7071, right: 7071, bottom: 7071 };
   camera: Camera = { x: 0, y: 0 };
   cameraZoom: number = 1;
@@ -87,6 +89,7 @@ export class GameState {
         if (cu.color) existing.color = cu.color;
         if (cu.skin !== undefined) existing.skin = cu.skin;
         if (cu.name !== undefined) existing.name = cu.name;
+        if (cu.effect !== undefined) existing.effect = cu.effect;
       } else {
         // New cell
         const cell: GameCell = {
@@ -104,6 +107,7 @@ export class GameState {
           color: cu.color ?? { r: 128, g: 128, b: 128 },
           skin: cu.skin ?? "",
           name: cu.name ?? "",
+          effect: cu.effect ?? "",
           spawnTime: now,
           eatAnimProgress: 0,
           jellyPoints: [],
@@ -117,12 +121,14 @@ export class GameState {
     for (const id of ev.removedIds) {
       this.cells.delete(id);
       this.myCellIds.delete(id);
+      this.multiCellIds.delete(id);
     }
 
     // Also remove eaten cells
     for (const eat of ev.eats) {
       this.cells.delete(eat.eatenId);
       this.myCellIds.delete(eat.eatenId);
+      this.multiCellIds.delete(eat.eatenId);
     }
 
     this.updateScore();
@@ -142,9 +148,14 @@ export class GameState {
     this.updateScore();
   }
 
+  onAddMultiCell(id: number) {
+    this.multiCellIds.add(id);
+  }
+
   onClearAll() {
     this.cells.clear();
     this.myCellIds.clear();
+    this.multiCellIds.clear();
   }
 
   onClearMine() {
@@ -201,11 +212,13 @@ export class GameState {
   }
 
   computeCamera(): { x: number; y: number; zoom: number } {
-    if (this.myCellIds.size === 0) {
+    if (this.myCellIds.size === 0 && this.multiCellIds.size === 0) {
       // Spectator mode: use server camera, same zoom as a starting player
       return { x: this.camera.x, y: this.camera.y, zoom: 1.0 };
     }
 
+    // Camera center: use the server-sent camera position (tracks the active player)
+    // We use myCellIds center as a fallback for smooth interpolation
     let cx = 0,
       cy = 0,
       totalSize = 0;
@@ -222,11 +235,17 @@ export class GameState {
       cy /= totalSize;
     }
 
-    // Proportional zoom: use equivalent radius from total mass.
-    // sqrt-based so player stays visible; mass-conserving so splits
-    // don't jolt the zoom.
+    // Use server camera (follows the active player — primary or multi)
+    const camX = this.camera.x || cx;
+    const camY = this.camera.y || cy;
+
+    // Zoom: based on COMBINED mass of primary + multi cells
     let totalMass = 0;
     for (const id of this.myCellIds) {
+      const c = this.cells.get(id);
+      if (c) totalMass += (c.size * c.size) / 100;
+    }
+    for (const id of this.multiCellIds) {
       const c = this.cells.get(id);
       if (c) totalMass += (c.size * c.size) / 100;
     }
@@ -235,6 +254,6 @@ export class GameState {
     const targetZoom = Math.sqrt(baseSize / Math.max(baseSize, equivRadius));
     const clampedZoom = Math.max(0.08, Math.min(1.5, targetZoom));
 
-    return { x: cx, y: cy, zoom: clampedZoom };
+    return { x: camX, y: camY, zoom: clampedZoom };
   }
 }

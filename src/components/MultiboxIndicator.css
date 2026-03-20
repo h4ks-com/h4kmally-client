@@ -1,0 +1,87 @@
+.multibox-indicator {
+  position: fixed;
+  top: 60px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: #fff;
+  font-family: "Ubuntu", sans-serif;
+  font-size: 13px;
+  z-index: 30;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.multibox-active {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.multibox-icon {
+  font-size: 16px;
+}
+
+.multibox-slot {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.slot-main {
+  color: #5bf;
+}
+
+.slot-multi {
+  color: #f5a623;
+}
+
+.multibox-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.multibox-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dot-alive {
+  background: #4caf50;
+  box-shadow: 0 0 4px #4caf50;
+}
+
+.dot-dead {
+  background: #f44336;
+  box-shadow: 0 0 4px #f44336;
+  animation: pulse-dead 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dead {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.multibox-label {
+  color: #ccc;
+}
+
+.multibox-hint {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-top: 2px;
+}

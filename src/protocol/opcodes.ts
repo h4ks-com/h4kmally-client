@@ -1,10 +1,12 @@
-// SIG 0.0.1 Protocol — Logical Opcodes
+// SIG 0.0.2 Protocol — Logical Opcodes
 
 // Client → Server
 export const CLIENT_SPAWN = 0;
 export const CLIENT_MOUSE = 16;
 export const CLIENT_SPLIT = 17;
 export const CLIENT_EJECT = 21;
+export const CLIENT_MULTIBOX_TOGGLE = 22;
+export const CLIENT_MULTIBOX_SWITCH = 23;
 export const CLIENT_CHAT = 99;
 export const CLIENT_STAT_UPDATE = 191;
 export const CLIENT_SPECTATE = 205;
@@ -17,7 +19,9 @@ export const SERVER_WORLD_UPDATE = 16;
 export const SERVER_CAMERA = 17;
 export const SERVER_CLEAR_ALL = 18;
 export const SERVER_CLEAR_MINE = 20;
+export const SERVER_MULTIBOX_STATE = 22;
 export const SERVER_ADD_MY_CELL = 32;
+export const SERVER_ADD_MULTI_CELL = 33;
 export const SERVER_LEADERBOARD_FFA = 49;
 export const SERVER_BORDER = 64;
 export const SERVER_CHAT = 99;
@@ -25,4 +29,4 @@ export const SERVER_SPAWN_RESULT = 221;
 export const SERVER_PING_REPLY = 254;
 
 /** The version string sent during handshake. */
-export const PROTOCOL_VERSION = "SIG 0.0.1";
+export const PROTOCOL_VERSION = "SIG 0.0.2";

@@ -13,6 +13,7 @@ import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
 import { Shop } from "./components/Shop";
 import { DailyGift } from "./components/DailyGift";
+import { MultiboxIndicator } from "./components/MultiboxIndicator";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -55,9 +56,10 @@ function GameApp() {
   const stateRef = useRef<GameState>(new GameState());
   const rendererRef = useRef<Renderer | null>(null);
   const mouseIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSpawnRef = useRef<{ name: string; skin: string }>({ name: "unnamed", skin: "" });
+  const lastSpawnRef = useRef<{ name: string; skin: string; effect: string }>({ name: "unnamed", skin: "", effect: "" });
   const wsBaseUrlRef = useRef<string>("");
   const prevScoreRef = useRef<number>(0);
+  const authFailedRef = useRef(false);
 
   // UI state
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
@@ -80,9 +82,19 @@ function GameApp() {
   const [xpCurrent, setXpCurrent] = useState(0);
   const [xpNeeded, setXpNeeded] = useState(1);
   const [pendingTokens, setPendingTokens] = useState<Array<{skinName: string}>>([]);
+  const [pendingEffectTokens, setPendingEffectTokens] = useState<Array<{effectName: string}>>([]);
   const [, setShowTokenReveal] = useState(false);
   const tokenRevealShownRef = useRef(false);
+  const effectTokenRevealShownRef = useRef(false);
   const [levelUpText, setLevelUpText] = useState<string | null>(null);
+
+  // Multibox state
+  const [multiboxEnabled, setMultiboxEnabled] = useState(false);
+  const [multiboxSlot, setMultiboxSlot] = useState(0);
+  const [multiAlive, setMultiAlive] = useState(false);
+  const multiboxEnabledRef = useRef(false);
+  const [multiboxWanted, setMultiboxWanted] = useState(false);
+  const multiboxWantedRef = useRef(false);
 
   // Fetch display info from Logto after authentication (name, picture, provider).
   // Server profile + session token are fetched by the connect effect below.
@@ -147,6 +159,11 @@ function GameApp() {
             setLevelUpText("Level up!");
             setTimeout(() => setLevelUpText(null), 4000);
           }
+          // Show effect token reveal if there are pending effect tokens
+          if (data.user?.pendingEffectTokens?.length > 0 && !effectTokenRevealShownRef.current) {
+            effectTokenRevealShownRef.current = true;
+            setPendingEffectTokens(data.user.pendingEffectTokens);
+          }
         }
       } catch {
         // ignore network errors
@@ -160,10 +177,12 @@ function GameApp() {
   }, [sessionToken, serverBaseUrl]); // intentionally omit showTokenReveal to prevent re-trigger
 
   const handleSignIn = useCallback(() => {
+    authFailedRef.current = false;
     signIn(window.location.origin + "/auth/callback");
   }, [signIn]);
 
   const handleSignOut = useCallback(() => {
+    authFailedRef.current = false;
     setUserProfile(null);
     setSessionToken(null);
     setDisplayName(null);
@@ -198,17 +217,31 @@ function GameApp() {
         gs.onAddMyCell(id);
         setAlive(true);
         setShowLobby(false);
+        // If user wants multibox but it's not enabled yet, send toggle now that we're alive
+        if (multiboxWantedRef.current && !multiboxEnabledRef.current) {
+          connRef.current?.sendMultiboxToggle();
+        }
+      },
+      onAddMultiCell: (id) => {
+        gs.onAddMultiCell(id);
       },
       onClearAll: () => gs.onClearAll(),
       onClearMine: () => {
         gs.onClearMine();
         setAlive(false);
+
         // Auto-respawn: re-spawn after a short delay if setting enabled
+        // (Skip during multibox — the server handles respawning individual slots.
+        //  ClearMine during multibox means both players are truly dead.)
+        if (multiboxEnabledRef.current) {
+          setShowLobby(true);
+          return;
+        }
         const currentSettings = JSON.parse(localStorage.getItem("h4kmally-settings") || "{}");
         if (currentSettings.autoRespawn && connRef.current?.connected) {
           setTimeout(() => {
             const sp = lastSpawnRef.current;
-            connRef.current?.sendSpawn(sp.name, sp.skin);
+            connRef.current?.sendSpawn(sp.name, sp.skin, sp.effect);
           }, 1500);
         } else {
           setShowLobby(true);
@@ -228,6 +261,16 @@ function GameApp() {
       onPingReply: (ms) => {
         gs.latency = ms;
         setLatency(ms);
+      },
+      onMultiboxState: (s) => {
+        setMultiboxEnabled(s.enabled);
+        multiboxEnabledRef.current = s.enabled;
+        setMultiboxSlot(s.activeSlot);
+        setMultiAlive(s.multiAlive);
+        // Keep the renderer's slot in sync so drawCell highlights correctly
+        if (rendererRef.current) {
+          rendererRef.current.multiboxSlot = s.activeSlot;
+        }
       },
     });
 
@@ -278,7 +321,7 @@ function GameApp() {
     // Already connected (e.g. hot-reload) — skip
     if (conn.connected) return;
 
-    if (!isAuthenticated || !serverBaseUrl) {
+    if (!isAuthenticated || !serverBaseUrl || authFailedRef.current) {
       // Guest — connect without session
       console.log("[WS] Connecting as guest");
       conn.connect(baseWs);
@@ -291,6 +334,7 @@ function GameApp() {
         const accessToken = await getAccessToken();
         if (!accessToken) {
           console.log("[WS] No access token, connecting as guest");
+          authFailedRef.current = true;
           conn.connect(baseWs);
           return;
         }
@@ -311,6 +355,7 @@ function GameApp() {
         }
       } catch (err) {
         console.warn("[WS] Auth error, connecting as guest:", err);
+        authFailedRef.current = true;
         conn.connect(baseWs);
       }
     })();
@@ -425,6 +470,10 @@ function GameApp() {
       if (e.key === "w" || e.key === "W") {
         startEject("w", 250); // 4 per second
       }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        conn.sendMultiboxSwitch();
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -478,10 +527,10 @@ function GameApp() {
   }, [alive, showLobby]);
 
   // Handlers
-  const handleSpawn = useCallback((name: string, skin: string) => {
-    lastSpawnRef.current = { name, skin };
+  const handleSpawn = useCallback((name: string, skin: string, effect: string) => {
+    lastSpawnRef.current = { name, skin, effect };
     const conn = connRef.current;
-    if (conn) conn.sendSpawn(name, skin);
+    if (conn) conn.sendSpawn(name, skin, effect);
   }, []);
 
   const handleSpectate = useCallback(() => {
@@ -499,6 +548,17 @@ function GameApp() {
   const handleOpenShop = useCallback(() => {
     setShowShop(true);
   }, []);
+
+  const handleMultiboxToggle = useCallback(() => {
+    const newWanted = !multiboxWantedRef.current;
+    multiboxWantedRef.current = newWanted;
+    setMultiboxWanted(newWanted);
+    // If player is alive, send toggle to server immediately
+    const conn = connRef.current;
+    if (conn?.connected && alive) {
+      conn.sendMultiboxToggle();
+    }
+  }, [alive]);
 
   const handleChatSend = useCallback((text: string) => {
     const conn = connRef.current;
@@ -560,13 +620,20 @@ function GameApp() {
           xpCurrent={xpCurrent}
           xpNeeded={xpNeeded}
           onOpenOptions={() => setShowOptions(true)}
+          multiboxEnabled={multiboxWanted}
+          onMultiboxToggle={handleMultiboxToggle}
           pendingTokens={pendingTokens}
+          pendingEffectTokens={pendingEffectTokens}
           serverBaseUrlForTokens={serverBaseUrl}
           sessionTokenForTokens={sessionToken}
           onTokenRevealDone={() => {
             setShowTokenReveal(false);
             setPendingTokens([]);
             tokenRevealShownRef.current = false;
+          }}
+          onEffectTokenRevealDone={() => {
+            setPendingEffectTokens([]);
+            effectTokenRevealShownRef.current = false;
           }}
         />
       )}
@@ -575,6 +642,9 @@ function GameApp() {
         <>
           <HUD score={score} latency={latency} leaderboard={leaderboard} levelUpText={levelUpText} />
           <Minimap state={stateRef.current} />
+          {multiboxEnabled && (
+            <MultiboxIndicator activeSlot={multiboxSlot} multiAlive={multiAlive} />
+          )}
         </>
       )}
 

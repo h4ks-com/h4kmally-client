@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { ConnectionState, LeaderboardEntry } from "../protocol";
 import type { UserProfile } from "../App";
 import { TokenReveal } from "./TokenReveal";
+import { EffectTokenReveal } from "./EffectTokenReveal";
 import { setSkinFiles, getSkinFile } from "../skinFileMap";
 import "./Lobby.css";
 
@@ -17,9 +18,26 @@ interface SkinAccessEntry {
   tokensNeed?: number;
 }
 
+interface EffectAccessEntry {
+  id: string;
+  label: string;
+  description: string;
+  category: string;
+  accessible: boolean;
+  reason?: string;
+  tokens?: number;
+  tokensNeed?: number;
+}
+
+interface TopUserEntry {
+  name: string;
+  points: number;
+  level: number;
+}
+
 interface LobbyProps {
   connectionState: ConnectionState;
-  onSpawn: (name: string, skin: string) => void;
+  onSpawn: (name: string, skin: string, effect: string) => void;
   onSpectate: () => void;
   canSpawn: boolean;
   serverBaseUrl: string;
@@ -39,10 +57,14 @@ interface LobbyProps {
   xpCurrent: number;
   xpNeeded: number;
   onOpenOptions: () => void;
+  multiboxEnabled: boolean;
+  onMultiboxToggle: () => void;
   pendingTokens: Array<{skinName: string}>;
+  pendingEffectTokens: Array<{effectName: string}>;
   serverBaseUrlForTokens: string;
   sessionTokenForTokens: string | null;
   onTokenRevealDone: () => void;
+  onEffectTokenRevealDone: () => void;
 }
 
 export function Lobby({
@@ -67,15 +89,20 @@ export function Lobby({
   xpCurrent,
   xpNeeded,
   onOpenOptions,
+  multiboxEnabled,
+  onMultiboxToggle,
   pendingTokens,
+  pendingEffectTokens,
   serverBaseUrlForTokens,
   sessionTokenForTokens,
   onTokenRevealDone,
+  onEffectTokenRevealDone,
 }: LobbyProps) {
   const [name, setName] = useState(() => localStorage.getItem("h4kmally-name") || "");
   const [skin, setSkin] = useState(() => localStorage.getItem("h4kmally-skin") || "");
+  const [effect, setEffect] = useState(() => localStorage.getItem("h4kmally-effect") || "");
 
-  // Persist name and skin to localStorage
+  // Persist name, skin, and effect to localStorage
   useEffect(() => {
     localStorage.setItem("h4kmally-name", name);
   }, [name]);
@@ -83,10 +110,18 @@ export function Lobby({
   useEffect(() => {
     localStorage.setItem("h4kmally-skin", skin);
   }, [skin]);
+
+  useEffect(() => {
+    localStorage.setItem("h4kmally-effect", effect);
+  }, [effect]);
   const [skins, setSkins] = useState<SkinAccessEntry[]>([]);
+  const [effectEntries, setEffectEntries] = useState<EffectAccessEntry[]>([]);
   const [showPicker, setShowPicker] = useState(false);
-  const [lbTab, setLbTab] = useState<"top" | "winners">("top");
+  const [showEffectPicker, setShowEffectPicker] = useState(false);
+  const [lbTab, setLbTab] = useState<"top" | "lb">("top");
+  const [topUsers, setTopUsers] = useState<TopUserEntry[]>([]);
   const [skinCategoryTab, setSkinCategoryTab] = useState<string>("all");
+  const [effectCategoryTab, setEffectCategoryTab] = useState<string>("all");
 
   // Load skins with access info (on mount and whenever picker is opened)
   useEffect(() => {
@@ -105,9 +140,37 @@ export function Lobby({
       .catch(() => {});
   }, [serverBaseUrl, showPicker, sessionToken]);
 
+  // Load effects with access info
+  useEffect(() => {
+    if (!serverBaseUrl) return;
+    const url = sessionToken
+      ? `${serverBaseUrl}/api/effects/access?session=${encodeURIComponent(sessionToken)}`
+      : `${serverBaseUrl}/api/effects/access`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.effects) {
+          setEffectEntries(data.effects);
+        }
+      })
+      .catch(() => {});
+  }, [serverBaseUrl, showEffectPicker, sessionToken]);
+
+  // Load top users (all-time high scorers)
+  useEffect(() => {
+    if (!serverBaseUrl) return;
+    fetch(`${serverBaseUrl}/api/top-users?limit=20`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.topUsers && Array.isArray(data.topUsers)) setTopUsers(data.topUsers);
+        else if (Array.isArray(data)) setTopUsers(data);
+      })
+      .catch(() => {});
+  }, [serverBaseUrl]);
+
   const handlePlay = useCallback(() => {
-    onSpawn(name || "unnamed", skin);
-  }, [name, skin, onSpawn]);
+    onSpawn(name || "unnamed", skin, effect);
+  }, [name, skin, effect, onSpawn]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -245,7 +308,7 @@ export function Lobby({
 
           {connectionState === "connected" && (
             <div className="lobby-section">
-              {/* Skin circle + nickname/server */}
+              {/* Skin circle + effect selector + nickname */}
               <div className="form-group-flex">
                 <div
                   className="skin-select-icon"
@@ -260,6 +323,14 @@ export function Lobby({
                   ) : null}
                   <span className="skin-plus">+</span>
                 </div>
+                <div
+                  className={`effect-select-icon ${effect ? "active" : ""}`}
+                  onClick={() => setShowEffectPicker(!showEffectPicker)}
+                  title={effect ? effectEntries.find(e => e.id === effect)?.label ?? effect : "Select effect"}
+                >
+                  <span className="effect-icon">✦</span>
+                  {effect && <span className="effect-active-dot" />}
+                </div>
                 <div className="form-group-fields">
                   <input
                     className="lobby-input"
@@ -272,6 +343,8 @@ export function Lobby({
                   />
                 </div>
               </div>
+
+              {/* Effect picker dropdown */}
 
               <div className="mode-btns">
                 <button
@@ -289,6 +362,16 @@ export function Lobby({
                   Spectate
                 </button>
               </div>
+
+              <label className="multibox-toggle" title="Enable a second cell group you control with Tab">
+                <input
+                  type="checkbox"
+                  checked={multiboxEnabled}
+                  onChange={onMultiboxToggle}
+                  disabled={connectionState !== "connected"}
+                />
+                <span>Multibox</span>
+              </label>
             </div>
           )}
 
@@ -302,20 +385,20 @@ export function Lobby({
         <div className="lobby-panel-right">
           <div className="lb-tabs">
             <button
+              className={`lb-tab ${lbTab === "lb" ? "active" : ""}`}
+              onClick={() => setLbTab("lb")}
+            >
+              Leaderboard
+            </button>
+            <button
               className={`lb-tab ${lbTab === "top" ? "active" : ""}`}
               onClick={() => setLbTab("top")}
             >
               Top Users
             </button>
-            <button
-              className={`lb-tab ${lbTab === "winners" ? "active" : ""}`}
-              onClick={() => setLbTab("winners")}
-            >
-              Winners
-            </button>
           </div>
           <div className="lb-inner">
-            {lbTab === "top" && (
+            {lbTab === "lb" && (
               <>
                 {leaderboard.length === 0 ? (
                   <div className="lb-empty">No players online</div>
@@ -333,8 +416,25 @@ export function Lobby({
                 )}
               </>
             )}
-            {lbTab === "winners" && (
-              <div className="lb-empty">Coming soon</div>
+            {lbTab === "top" && (
+              <>
+                {topUsers.length === 0 ? (
+                  <div className="lb-empty">No data yet</div>
+                ) : (
+                  <table className="lb-table top-users-table">
+                    <tbody>
+                      {topUsers.map((user, i) => (
+                        <tr key={i}>
+                          <td className="top-rank">{i + 1}.</td>
+                          <td className="top-name">{user.name}</td>
+                          <td className="top-points">{user.points.toLocaleString()}</td>
+                          <td className="top-level">Lv{user.level}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -417,6 +517,94 @@ export function Lobby({
         </div>
       )}
 
+      {/* ── Effect Picker Modal ── */}
+      {showEffectPicker && (
+        <div className="effect-picker-overlay" onClick={() => setShowEffectPicker(false)}>
+          <div className="effect-picker-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="effect-picker-header">
+              <h2>Effects</h2>
+              <button
+                className="effect-picker-close"
+                onClick={() => setShowEffectPicker(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Category tabs */}
+            <div className="effect-category-tabs">
+              {["all", "free", "premium"].map((cat) => {
+                const count = cat === "all"
+                  ? effectEntries.length
+                  : effectEntries.filter((e) => e.category === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    className={`effect-cat-tab ${effectCategoryTab === cat ? "active" : ""}`}
+                    onClick={() => setEffectCategoryTab(cat)}
+                  >
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="effect-picker-grid">
+              {/* None option */}
+              <div
+                className={`effect-picker-card ${effect === "" ? "active" : ""}`}
+                onClick={() => { setEffect(""); setShowEffectPicker(false); }}
+                title="No effect"
+              >
+                <div className="effect-card-icon">✕</div>
+                <div className="effect-card-label">None</div>
+              </div>
+              {effectEntries
+                .filter((e) => effectCategoryTab === "all" || e.category === effectCategoryTab)
+                .map((e) => {
+                  const locked = !e.accessible;
+                  return (
+                    <div
+                      key={e.id}
+                      className={`effect-picker-card ${effect === e.id ? "active" : ""} ${locked ? "locked" : ""} ${e.category === "premium" ? "premium" : ""}`}
+                      onClick={() => {
+                        if (!locked) {
+                          setEffect(e.id);
+                          setShowEffectPicker(false);
+                        }
+                      }}
+                      title={locked ? (e.reason || "Locked") : e.label}
+                    >
+                      <div className="effect-card-icon">
+                        {e.category === "premium" ? "★" : "✦"}
+                      </div>
+                      <div className="effect-card-label">{e.label}</div>
+                      {locked && (
+                        <div className="effect-lock-overlay">
+                          <span className="effect-lock-icon2">🔒</span>
+                          {e.category === "premium" && e.tokensNeed != null && (
+                            <span className="effect-token-progress">
+                              {e.tokens || 0}/{e.tokensNeed}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+            {effect && (
+              <button
+                className="effect-picker-clear"
+                onClick={() => { setEffect(""); setShowEffectPicker(false); }}
+              >
+                Clear Effect
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Token Reveal — shown in lobby after level-up */}
       {pendingTokens.length > 0 && sessionTokenForTokens && (
         <TokenReveal
@@ -424,6 +612,16 @@ export function Lobby({
           serverBaseUrl={serverBaseUrlForTokens}
           sessionToken={sessionTokenForTokens}
           onDone={onTokenRevealDone}
+        />
+      )}
+
+      {/* Effect Token Reveal — shown in lobby after level-up */}
+      {pendingEffectTokens.length > 0 && sessionTokenForTokens && pendingTokens.length === 0 && (
+        <EffectTokenReveal
+          tokens={pendingEffectTokens}
+          serverBaseUrl={serverBaseUrlForTokens}
+          sessionToken={sessionTokenForTokens}
+          onDone={onEffectTokenRevealDone}
         />
       )}
     </div>

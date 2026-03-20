@@ -6,6 +6,10 @@ interface ShopItem {
   name: string;
   price: number;
   tokens: number;
+  type: string;
+  section: string;
+  skinTokens?: number;
+  effectTokens?: number;
 }
 
 interface ShopOrder {
@@ -13,6 +17,9 @@ interface ShopOrder {
   itemId: string;
   amount: number;
   tokens: number;
+  tokenType: string;
+  skinTokens?: number;
+  effectTokens?: number;
   status: string;
   createdAt: number;
 }
@@ -59,7 +66,6 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
 
   useEffect(() => {
     fetchShopData();
-    // Poll orders every 10s to detect fulfillment
     const interval = setInterval(fetchShopData, 10000);
     return () => clearInterval(interval);
   }, [fetchShopData]);
@@ -91,7 +97,6 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
         setSuccess("Payment page opened! Complete the transfer to receive your tokens.");
       }
 
-      // Refresh orders
       fetchShopData();
     } catch {
       setError("Failed to initiate purchase");
@@ -125,6 +130,31 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
   const pendingOrders = orders.filter(o => o.status === "pending");
   const completedOrders = orders.filter(o => o.status === "completed");
 
+  const skinItems = items.filter(i => i.section === "skin");
+  const effectItems = items.filter(i => i.section === "effect");
+  const bundleItems = items.filter(i => i.section === "bundle");
+
+  const perBean = (item: ShopItem) => (item.tokens / item.price).toFixed(1);
+
+  // Compute bonus % vs base tier for skin/effect items
+  const skinBaseRate = skinItems.length > 0 ? skinItems[0].tokens / skinItems[0].price : 1;
+  const effectBaseRate = effectItems.length > 0 ? effectItems[0].tokens / effectItems[0].price : 1;
+
+  const bonusPct = (item: ShopItem): number => {
+    const rate = item.tokens / item.price;
+    const base = item.section === "skin" ? skinBaseRate : effectBaseRate;
+    return Math.round(((rate - base) / base) * 100);
+  };
+
+  // Compute bundle savings vs buying individually at base rate
+  const bundleSavings = (item: ShopItem): number => {
+    const skinCost = (item.skinTokens || 0) / skinBaseRate;
+    const effectCost = (item.effectTokens || 0) / effectBaseRate;
+    const individualCost = skinCost + effectCost;
+    if (individualCost <= 0) return 0;
+    return Math.round(((individualCost - item.price) / individualCost) * 100);
+  };
+
   return (
     <div className="shop-overlay" onClick={onClose}>
       <div className="shop-panel" onClick={e => e.stopPropagation()}>
@@ -134,7 +164,8 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
         </div>
 
         <p className="shop-desc">
-          Buy <strong>Skin Tokens</strong> with <strong>{currency}</strong> — collect 5 of the same token to unlock a premium skin!
+          Buy tokens with <strong>{currency}</strong> to unlock premium skins and effects.
+          Collect 5 matching tokens to unlock! Effects are rarer — bundles are the best deal.
         </p>
 
         {loading ? (
@@ -144,26 +175,102 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
             {error && <div className="shop-error">{error}</div>}
             {success && <div className="shop-success">{success}</div>}
 
-            <div className="shop-items">
-              {items.map(item => (
-                <div key={item.id} className="shop-item">
-                  <div className="shop-item-tokens">
-                    <span className="shop-item-count">{item.tokens}</span>
-                    <span className="shop-item-label">Tokens</span>
+            {/* ── Skin Tokens Section ── */}
+            <div className="shop-section">
+              <div className="shop-section-header skin-section">
+                <span className="shop-section-icon">🎨</span>
+                <span className="shop-section-title">Skin Tokens</span>
+              </div>
+              <div className="shop-items">
+                {skinItems.map(item => (
+                  <div key={item.id} className="shop-item skin-item">
+                    {bonusPct(item) > 0 && (
+                      <span className="shop-item-bonus">+{bonusPct(item)}% bonus</span>
+                    )}
+                    <div className="shop-item-tokens">
+                      <span className="shop-item-count skin-count">{item.tokens}</span>
+                      <span className="shop-item-label">Skin Tokens</span>
+                    </div>
+                    <div className="shop-item-price">
+                      <span className="shop-item-beans">🫘 {item.price}</span>
+                    </div>
+                    <button
+                      className="shop-item-buy skin-buy"
+                      onClick={() => handlePurchase(item.id)}
+                      disabled={purchasing === item.id}
+                    >
+                      {purchasing === item.id ? "..." : "Buy"}
+                    </button>
                   </div>
-                  <div className="shop-item-price">
-                    <span className="shop-item-beans">🫘 {item.price}</span>
-                    <span className="shop-item-currency">{currency}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Effect Tokens Section ── */}
+            <div className="shop-section">
+              <div className="shop-section-header effect-section">
+                <span className="shop-section-icon">✦</span>
+                <span className="shop-section-title">Effect Tokens</span>
+              </div>
+              <div className="shop-items">
+                {effectItems.map(item => (
+                  <div key={item.id} className="shop-item effect-item">
+                    {bonusPct(item) > 0 && (
+                      <span className="shop-item-bonus effect-bonus">+{bonusPct(item)}% bonus</span>
+                    )}
+                    <div className="shop-item-tokens">
+                      <span className="shop-item-count effect-count">{item.tokens}</span>
+                      <span className="shop-item-label">Effect Tokens</span>
+                    </div>
+                    <div className="shop-item-price">
+                      <span className="shop-item-beans">🫘 {item.price}</span>
+                    </div>
+                    <button
+                      className="shop-item-buy effect-buy"
+                      onClick={() => handlePurchase(item.id)}
+                      disabled={purchasing === item.id}
+                    >
+                      {purchasing === item.id ? "..." : "Buy"}
+                    </button>
                   </div>
-                  <button
-                    className="shop-item-buy"
-                    onClick={() => handlePurchase(item.id)}
-                    disabled={purchasing === item.id}
-                  >
-                    {purchasing === item.id ? "..." : "Buy"}
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+
+            {/* ── Bundles Section ── */}
+            <div className="shop-section">
+              <div className="shop-section-header bundle-section">
+                <span className="shop-section-icon">🎁</span>
+                <span className="shop-section-title">Bundles</span>
+                <span className="shop-section-badge">Best Value!</span>
+              </div>
+              <div className="shop-items">
+                {bundleItems.map(item => (
+                  <div key={item.id} className="shop-item bundle-item">
+                    {bundleSavings(item) > 0 && (
+                      <span className="shop-item-bonus bundle-savings">Save {bundleSavings(item)}%</span>
+                    )}
+                    <div className="shop-item-name">{item.name}</div>
+                    <div className="shop-item-tokens bundle-tokens">
+                      <span className="shop-item-count bundle-count">{item.tokens}</span>
+                      <span className="shop-item-label">Total Tokens</span>
+                      <span className="bundle-breakdown">
+                        🎨 {item.skinTokens} + ✦ {item.effectTokens}
+                      </span>
+                    </div>
+                    <div className="shop-item-price">
+                      <span className="shop-item-beans">🫘 {item.price}</span>
+                    </div>
+                    <button
+                      className="shop-item-buy bundle-buy"
+                      onClick={() => handlePurchase(item.id)}
+                      disabled={purchasing === item.id}
+                    >
+                      {purchasing === item.id ? "..." : "Buy"}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {pendingOrders.length > 0 && (
@@ -172,7 +279,11 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
                 <p className="shop-orders-hint">Complete the payment on {currency} to receive tokens. Orders auto-refresh.</p>
                 {pendingOrders.map(order => (
                   <div key={order.id} className="shop-order pending">
-                    <span className="shop-order-tokens">{order.tokens} tokens</span>
+                    <span className="shop-order-tokens">
+                      {order.tokenType === "bundle"
+                        ? `🎨 ${order.skinTokens || "?"} + ✦ ${order.effectTokens || "?"}`
+                        : `${order.tokens} ${order.tokenType === "effect" ? "effect" : "skin"} tokens`}
+                    </span>
                     <span className="shop-order-amount">🫘 {order.amount}</span>
                     <span className="shop-order-status">Waiting for payment...</span>
                     <button
@@ -190,7 +301,11 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
                 <h3>✅ Completed</h3>
                 {completedOrders.slice(0, 5).map(order => (
                   <div key={order.id} className="shop-order completed">
-                    <span className="shop-order-tokens">{order.tokens} tokens</span>
+                    <span className="shop-order-tokens">
+                      {order.tokenType === "bundle"
+                        ? `🎨 ${order.skinTokens || "?"} + ✦ ${order.effectTokens || "?"}`
+                        : `${order.tokens} ${order.tokenType === "effect" ? "effect" : "skin"} tokens`}
+                    </span>
                     <span className="shop-order-amount">🫘 {order.amount}</span>
                     <span className="shop-order-status">Delivered!</span>
                   </div>

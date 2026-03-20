@@ -161,6 +161,247 @@
   flex: 1;
 }
 
+/* ── Effect select icon ── */
+.effect-select-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(150, 150, 170, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  background: rgba(20, 20, 30, 0.6);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.effect-select-icon:hover {
+  border-color: rgba(180, 180, 255, 0.8);
+  box-shadow: 0 0 8px rgba(150, 150, 255, 0.3);
+}
+.effect-select-icon.active {
+  border-color: rgba(140, 200, 255, 0.9);
+  box-shadow: 0 0 12px rgba(100, 180, 255, 0.4);
+}
+.effect-icon {
+  font-size: 20px;
+  color: rgba(200, 200, 230, 0.8);
+  line-height: 1;
+}
+.effect-active-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background: #5cb8ff;
+  border: 1.5px solid #1a1a2e;
+  border-radius: 50%;
+}
+
+/* ── Effect picker dropdown ── */
+.effect-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  backdrop-filter: blur(4px);
+}
+
+.effect-picker-panel {
+  background: #fff;
+  border-radius: 15px;
+  padding: 20px;
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #333136;
+  font-family: Arial, sans-serif;
+}
+
+.effect-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.effect-picker-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.effect-picker-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.effect-picker-close:hover {
+  color: #333;
+}
+
+/* ── Effect Category Tabs ── */
+.effect-category-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 8px;
+}
+
+.effect-cat-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: Arial, sans-serif;
+  color: #888;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.effect-cat-tab:hover {
+  background: #f1f5f9;
+  color: #555;
+}
+
+.effect-cat-tab.active {
+  background: #6c5ce7;
+  color: #fff;
+}
+
+.effect-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 55vh;
+  padding: 4px;
+}
+
+.effect-picker-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px;
+  border-radius: 12px;
+  border: 2px solid #e0e0e0;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  background: #fafafa;
+  min-height: 80px;
+}
+
+.effect-picker-card:hover {
+  transform: scale(1.05);
+  border-color: #6c5ce7;
+  box-shadow: 0 2px 12px rgba(108, 92, 231, 0.15);
+}
+
+.effect-picker-card.active {
+  border-color: #6c5ce7;
+  box-shadow: 0 0 10px rgba(108, 92, 231, 0.3);
+  background: #f3f0ff;
+}
+
+.effect-picker-card.locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.effect-picker-card.locked:hover {
+  transform: none;
+  border-color: #e0e0e0;
+  box-shadow: none;
+}
+
+.effect-picker-card.premium .effect-card-icon {
+  color: #f0c040;
+}
+
+.effect-card-icon {
+  font-size: 26px;
+  color: #6c5ce7;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.effect-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.effect-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  gap: 2px;
+}
+
+.effect-lock-icon2 {
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.effect-token-progress {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f0c040;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.effect-picker-clear {
+  margin-top: 12px;
+  height: 34px;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #555;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+}
+
+.effect-picker-clear:hover {
+  background: #e2e8f0;
+}
+
+.effect-picker-grid::-webkit-scrollbar {
+  width: 6px;
+}
+.effect-picker-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+.effect-picker-grid::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
 .form-group-fields {
   flex: 1;
   display: flex;
@@ -225,6 +466,36 @@
   background: #888;
   border-color: #444;
   cursor: not-allowed;
+}
+
+.multibox-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #ccc;
+  cursor: pointer;
+  user-select: none;
+}
+
+.multibox-toggle input[type="checkbox"] {
+  accent-color: #f5a623;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.multibox-toggle span {
+  font-family: "Ubuntu", Arial, sans-serif;
+}
+
+.multibox-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.multibox-toggle input:disabled + span {
+  opacity: 0.5;
 }
 
 .btn-connect {
@@ -536,6 +807,39 @@
   color: #999;
   font-size: 13px;
   padding-top: 20px;
+}
+
+/* Top users table */
+.top-users-table td {
+  font-size: 12px;
+}
+
+.top-users-table .top-rank {
+  width: 24px;
+  color: #999;
+  text-align: right;
+  padding-right: 6px;
+}
+
+.top-users-table .top-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-users-table .top-points {
+  text-align: right;
+  color: #6c5ce7;
+  font-weight: 600;
+  font-size: 11px;
+  padding-right: 4px;
+}
+
+.top-users-table .top-level {
+  color: #999;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 /* ── Skin picker modal ── */

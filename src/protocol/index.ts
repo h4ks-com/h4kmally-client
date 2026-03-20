@@ -9,4 +9,5 @@ export type {
   Border,
   Camera,
   ChatMessage,
+  MultiboxState,
 } from "./connection";

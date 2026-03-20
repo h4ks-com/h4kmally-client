@@ -2,6 +2,7 @@ import { GameState } from "./state";
 import type { GameCell } from "./state";
 import type { Settings } from "./settings";
 import { getSkinFile } from "../skinFileMap";
+import { getEffect, cleanupEffectState } from "./effects";
 
 const GRID_SPACING = 50;
 const BORDER_WIDTH = 6;
@@ -52,6 +53,12 @@ export class Renderer {
   // Settings reference (updated from outside)
   settings: Settings;
 
+  // Multibox: which slot is actively controlled (0=primary, 1=multi)
+  multiboxSlot = 0;
+
+  // Frame counter for periodic effect cleanup
+  private frameCount = 0;
+
   // Server base URL for skin images (set after connect)
   serverBaseUrl = "";
 
@@ -62,6 +69,9 @@ export class Renderer {
   // Animated skin support: GIF frames decoded into ImageBitmaps
   private animSkins = new Map<string, { frames: ImageBitmap[]; delays: number[]; totalDuration: number }>();
   private animStart = performance.now(); // reference time for animation
+
+  // Black hole warp state (computed once per frame in render())
+  private blackholes: { x: number; y: number; size: number; id: number }[] = [];
 
   constructor(canvas: HTMLCanvasElement, state: GameState, settings: Settings) {
     this.canvas = canvas;
@@ -148,6 +158,46 @@ export class Renderer {
     this.skinCache.set(skinName, img);
   }
 
+  /** Collect all black hole cells for gravitational warp (call once per frame). */
+  private collectBlackholes() {
+    this.blackholes.length = 0;
+    for (const cell of this.state.cells.values()) {
+      if (cell.isPlayer && cell.effect === "blackhole") {
+        this.blackholes.push({ x: cell.x, y: cell.y, size: Math.max(cell.size, 1), id: cell.id });
+      }
+    }
+  }
+
+  /** Warp a world-space point toward nearby black holes. */
+  private warpPoint(px: number, py: number): [number, number] {
+    let wx = px, wy = py;
+    for (const bh of this.blackholes) {
+      const dx = wx - bh.x;
+      const dy = wy - bh.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const warpRadius = bh.size * 2.5;
+      if (dist < 1 || dist > warpRadius) continue;
+      const strength = bh.size * 0.6;
+      const pull = strength / (dist * 0.8);
+      // Smooth fade: 0 at edge of warp zone, 1 at center — eliminates the boundary jump
+      const edgeT = 1 - dist / warpRadius; // 0 at edge, 1 at center
+      const smoothFade = edgeT * edgeT * (3 - 2 * edgeT); // smoothstep for extra smoothness
+      const factor = Math.min(pull, 0.7) * smoothFade;
+      wx = bh.x + dx * (1 - factor);
+      wy = bh.y + dy * (1 - factor);
+    }
+    return [wx, wy];
+  }
+
+  /** Check if a point is near any black hole's warp zone. */
+  private nearBlackhole(px: number, py: number): boolean {
+    for (const bh of this.blackholes) {
+      const dx = px - bh.x, dy = py - bh.y;
+      if (dx * dx + dy * dy < bh.size * bh.size * 6.25) return true;
+    }
+    return false;
+  }
+
   /** Start the render loop. Returns a stop function. */
   start(): () => void {
     let running = true;
@@ -161,6 +211,13 @@ export class Renderer {
       this.state.updateSpectator(dt);
       this.updateCamera(dt);
       this.render();
+
+      // Periodic effect state cleanup (every ~120 frames)
+      this.frameCount++;
+      if (this.frameCount % 120 === 0) {
+        const allIds = new Set(this.state.cells.keys());
+        cleanupEffectState(allIds);
+      }
 
       requestAnimationFrame(loop);
     };
@@ -239,6 +296,8 @@ export class Renderer {
     ctx.scale(this.camZoom, this.camZoom);
     ctx.translate(-this.camX, -this.camY);
 
+    this.collectBlackholes();
+
     if (this.settings.showGrid) this.drawGrid(ctx);
     if (this.settings.showBorder) this.drawBorder(ctx);
     this.drawCells(ctx);
@@ -249,21 +308,78 @@ export class Renderer {
   private drawGrid(ctx: CanvasRenderingContext2D) {
     const { left, top, right, bottom } = this.state.border;
     const theme = this.settings.darkMode ? THEMES.dark : THEMES.light;
-    ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1 / this.camZoom;
 
-    ctx.beginPath();
     const startX = Math.floor(left / GRID_SPACING) * GRID_SPACING;
     const startY = Math.floor(top / GRID_SPACING) * GRID_SPACING;
-    for (let x = startX; x <= right; x += GRID_SPACING) {
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
+
+    if (this.blackholes.length === 0) {
+      // Fast path: no black holes, draw straight lines
+      ctx.strokeStyle = theme.grid;
+      ctx.beginPath();
+      for (let x = startX; x <= right; x += GRID_SPACING) {
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+      }
+      for (let y = startY; y <= bottom; y += GRID_SPACING) {
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+      }
+      ctx.stroke();
+    } else {
+      // Slow path: draw all grid as warped curves through black hole regions.
+      // Every line is segmented; segments near a black hole get pulled.
+      const segLen = GRID_SPACING * 0.25;
+
+      ctx.strokeStyle = theme.grid;
+      ctx.lineWidth = 1 / this.camZoom;
+
+      // Vertical lines
+      for (let x = startX; x <= right; x += GRID_SPACING) {
+        // Check if this vertical line passes near any blackhole
+        let lineAffected = false;
+        for (const bh of this.blackholes) {
+          if (Math.abs(x - bh.x) < bh.size * 2.5) { lineAffected = true; break; }
+        }
+
+        ctx.beginPath();
+        if (!lineAffected) {
+          ctx.moveTo(x, top);
+          ctx.lineTo(x, bottom);
+        } else {
+          // Draw segmented — warp only the affected segments
+          let first = true;
+          for (let y = top; y <= bottom; y += segLen) {
+            const [wx, wy] = this.nearBlackhole(x, y) ? this.warpPoint(x, y) : [x, y];
+            if (first) { ctx.moveTo(wx, wy); first = false; }
+            else ctx.lineTo(wx, wy);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let y = startY; y <= bottom; y += GRID_SPACING) {
+        let lineAffected = false;
+        for (const bh of this.blackholes) {
+          if (Math.abs(y - bh.y) < bh.size * 2.5) { lineAffected = true; break; }
+        }
+
+        ctx.beginPath();
+        if (!lineAffected) {
+          ctx.moveTo(left, y);
+          ctx.lineTo(right, y);
+        } else {
+          let first = true;
+          for (let x = left; x <= right; x += segLen) {
+            const [wx, wy] = this.nearBlackhole(x, y) ? this.warpPoint(x, y) : [x, y];
+            if (first) { ctx.moveTo(wx, wy); first = false; }
+            else ctx.lineTo(wx, wy);
+          }
+        }
+        ctx.stroke();
+      }
     }
-    for (let y = startY; y <= bottom; y += GRID_SPACING) {
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
-    }
-    ctx.stroke();
   }
 
   private drawBorder(ctx: CanvasRenderingContext2D) {
@@ -271,7 +387,45 @@ export class Renderer {
     const theme = this.settings.darkMode ? THEMES.dark : THEMES.light;
     ctx.strokeStyle = theme.border;
     ctx.lineWidth = BORDER_WIDTH / this.camZoom;
-    ctx.strokeRect(left, top, right - left, bottom - top);
+
+    if (this.blackholes.length === 0) {
+      ctx.strokeRect(left, top, right - left, bottom - top);
+    } else {
+      // Draw border as segmented lines warped near black holes
+      // Use adaptive segmentation: finer near black holes for smooth stretch
+      const baseSegLen = GRID_SPACING * 0.5;
+      const fineSegLen = GRID_SPACING * 0.12; // much finer near warp zone
+
+      const drawWarpedLine = (x1: number, y1: number, x2: number, y2: number) => {
+        const ldx = x2 - x1, ldy = y2 - y1;
+        const len = Math.sqrt(ldx * ldx + ldy * ldy);
+
+        ctx.beginPath();
+        let traveled = 0;
+        let first = true;
+        while (traveled <= len) {
+          const t = traveled / len;
+          const px = x1 + ldx * t;
+          const py = y1 + ldy * t;
+          // Use fine segments when near a black hole
+          const near = this.nearBlackhole(px, py);
+          const [wx, wy] = near ? this.warpPoint(px, py) : [px, py];
+          if (first) { ctx.moveTo(wx, wy); first = false; }
+          else ctx.lineTo(wx, wy);
+          // Adaptive step: fine near black holes, coarse elsewhere
+          traveled += near ? fineSegLen : baseSegLen;
+        }
+        // Ensure we hit the endpoint
+        const [ex, ey] = this.nearBlackhole(x2, y2) ? this.warpPoint(x2, y2) : [x2, y2];
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+      };
+
+      drawWarpedLine(left, top, right, top);    // top edge
+      drawWarpedLine(right, top, right, bottom); // right edge
+      drawWarpedLine(right, bottom, left, bottom); // bottom edge
+      drawWarpedLine(left, bottom, left, top);   // left edge
+    }
   }
 
   private sortedCells: GameCell[] = [];
@@ -293,23 +447,106 @@ export class Renderer {
   private drawCell(ctx: CanvasRenderingContext2D, cell: GameCell) {
     const { r, g, b } = cell.color;
     const isMine = this.state.myCellIds.has(cell.id);
+    const isMulti = this.state.multiCellIds.has(cell.id);
+    const isOwned = isMine || isMulti;
+    // Active = the slot currently being controlled
+    const isActive = (isMine && this.multiboxSlot === 0) || (isMulti && this.multiboxSlot === 1);
+    const isInactive = isOwned && !isActive;
     const size = Math.max(cell.size, 1);
 
     // No spawn animation — cells appear at full size immediately
     const drawSize = size;
 
+    // Apply gravitational warp: non-blackhole cells near a blackhole get pulled
+    let drawX = cell.x;
+    let drawY = cell.y;
+    let radialStretch = 1;   // stretch along the direction toward the black hole
+    let tangentialCompress = 1; // compress perpendicular to that direction
+    let warpAngle = 0;      // angle from cell toward the closest black hole
+    const isBlackhole = cell.isPlayer && cell.effect === "blackhole";
+    if (!isBlackhole && this.blackholes.length > 0 && this.nearBlackhole(cell.x, cell.y)) {
+      const [wx, wy] = this.warpPoint(cell.x, cell.y);
+      drawX = wx;
+      drawY = wy;
+
+      // Find the dominant (closest) black hole for directional spaghettification
+      let closestBh = this.blackholes[0];
+      let closestDist2 = Infinity;
+      for (const bh of this.blackholes) {
+        const ddx = cell.x - bh.x, ddy = cell.y - bh.y;
+        const d2 = ddx * ddx + ddy * ddy;
+        if (d2 < closestDist2) { closestDist2 = d2; closestBh = bh; }
+      }
+
+      const dist = Math.sqrt(closestDist2);
+      const warpRadius = closestBh.size * 2.5;
+
+      if (dist > 1 && dist < warpRadius) {
+        // How deep into the warp zone (0 = edge, 1 = center)
+        const depth = 1 - dist / warpRadius;
+        // Spaghettification: stretch radially, compress tangentially
+        // Stronger effect for smaller objects (food gets noodled more)
+        const sizeFactor = Math.min(1, 40 / Math.max(size, 1)); // food=1.0, big players=less
+        const spaghettiStrength = depth * depth * sizeFactor;
+
+        radialStretch = 1 + spaghettiStrength * 2.5;     // stretch up to 3.5x toward BH
+        tangentialCompress = 1 - spaghettiStrength * 0.7; // compress down to 0.3x wide
+        tangentialCompress = Math.max(0.15, tangentialCompress);
+
+        // Angle from cell toward the black hole center
+        warpAngle = Math.atan2(closestBh.y - cell.y, closestBh.x - cell.x);
+      }
+    }
+
     ctx.save();
-    ctx.translate(cell.x, cell.y);
+    ctx.translate(drawX, drawY);
+    if (radialStretch !== 1 || tangentialCompress !== 1) {
+      // Rotate so x-axis points toward the black hole, apply anisotropic scale, rotate back
+      ctx.rotate(warpAngle);
+      ctx.scale(radialStretch, tangentialCompress);
+      ctx.rotate(-warpAngle);
+    }
+
+    // Dim inactive multibox cells slightly
+    if (isInactive) {
+      ctx.globalAlpha = 0.6;
+    }
 
     if (cell.isVirus) {
       // ── Virus: spikey circle with cute rounded spikes ──
       this.drawVirus(ctx, drawSize);
     } else if (cell.isPlayer) {
       // ── Player: jelly wobble + visual padding ──
-      this.drawPlayerCell(ctx, cell, drawSize, r, g, b, isMine);
+      this.drawPlayerCell(ctx, cell, drawSize, r, g, b, isOwned);
     } else {
       // ── Food / eject: small jelly wobble ──
       this.drawFoodCell(ctx, cell, drawSize, r, g, b);
+    }
+
+    // Restore alpha before drawing text
+    if (isInactive) {
+      ctx.globalAlpha = 1.0;
+    }
+
+    // Draw active indicator ring for the controlled slot
+    if (isActive && this.state.multiCellIds.size > 0) {
+      const ringRadius = drawSize * 1.12;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringRadius, 0, PI2);
+      ctx.closePath();
+      ctx.strokeStyle = this.multiboxSlot === 0 ? "rgba(91,187,255,0.6)" : "rgba(245,166,35,0.6)";
+      ctx.lineWidth = Math.max(3, drawSize * 0.04);
+      ctx.stroke();
+    }
+
+    // Draw border effect (if any)
+    if (cell.isPlayer && cell.effect) {
+      const effectFn = getEffect(cell.effect);
+      if (effectFn) {
+        // Pass cell ID to effect for per-cell state tracking
+        (ctx as unknown as { _effectCellId?: number })._effectCellId = cell.id;
+        effectFn(ctx, drawSize, r, g, b, performance.now() / 1000);
+      }
     }
 
     // Draw name
@@ -322,12 +559,12 @@ export class Renderer {
       ctx.strokeStyle = TEXT_STROKE;
       ctx.fillStyle = TEXT_FILL;
 
-      const textY = cell.isPlayer && this.state.myCellIds.has(cell.id) && drawSize > 40 ? -fontSize * 0.3 : 0;
+      const textY = cell.isPlayer && isOwned && drawSize > 40 ? -fontSize * 0.3 : 0;
       ctx.strokeText(cell.name, 0, textY);
       ctx.fillText(cell.name, 0, textY);
 
-      // Draw mass for own cells
-      if (this.settings.showMass && isMine && drawSize > 40) {
+      // Draw mass for own cells (both primary and multi)
+      if (this.settings.showMass && isOwned && drawSize > 40) {
         const mass = Math.round((cell.size * cell.size) / 100);
         const massFontSize = fontSize * 0.55;
         ctx.font = `bold ${massFontSize}px Arial, sans-serif`;
