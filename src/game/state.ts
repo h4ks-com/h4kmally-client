@@ -24,8 +24,6 @@ export interface GameCell {
   // Animation
   spawnTime: number;
   eatAnimProgress: number; // 0 = not eaten, >0 = shrinking
-  alpha: number;           // 0..1 opacity (fade-in on spawn, fade-out on remove)
-  removing: boolean;       // true = fading out, will be deleted when alpha <= 0
 
   // Jelly physics (spring-mass points around the cell perimeter)
   jellyPoints: number[];    // radius of each point
@@ -80,12 +78,6 @@ export class GameState {
     for (const cu of ev.cells) {
       const existing = this.cells.get(cu.id);
       if (existing) {
-        // If cell was fading out but server re-sent it (grid boundary flicker),
-        // cancel the removal and snap back in.
-        if (existing.removing) {
-          existing.removing = false;
-          existing.alpha = Math.max(existing.alpha, 0.5);
-        }
         // Update existing cell — set interpolation targets
         existing.targetX = cu.x;
         existing.targetY = cu.y;
@@ -118,8 +110,6 @@ export class GameState {
           effect: cu.effect ?? "",
           spawnTime: now,
           eatAnimProgress: 0,
-          alpha: 0, // fade in from 0
-          removing: false,
           jellyPoints: [],
           jellyVel: [],
         };
@@ -127,17 +117,14 @@ export class GameState {
       }
     }
 
-    // Mark cells for fade-out removal (instead of instant delete)
+    // Remove cells
     for (const id of ev.removedIds) {
-      const cell = this.cells.get(id);
-      if (cell) {
-        cell.removing = true;
-      }
+      this.cells.delete(id);
       this.myCellIds.delete(id);
       this.multiCellIds.delete(id);
     }
 
-    // Eaten cells: instant remove (they visually merge into eater)
+    // Also remove eaten cells
     for (const eat of ev.eats) {
       this.cells.delete(eat.eatenId);
       this.myCellIds.delete(eat.eatenId);
@@ -200,22 +187,10 @@ export class GameState {
   /** Interpolate cell positions toward targets. Call once per render frame. */
   interpolate(dt: number) {
     const lerpFactor = Math.min(1, dt * 12); // smooth factor
-    const fadeSpeed = dt * 8; // fade-in/out speed (~125ms to fully appear/vanish)
     for (const cell of this.cells.values()) {
       cell.x += (cell.targetX - cell.x) * lerpFactor;
       cell.y += (cell.targetY - cell.y) * lerpFactor;
       cell.size += (cell.targetSize - cell.size) * lerpFactor;
-
-      if (cell.removing) {
-        // Fade out
-        cell.alpha = Math.max(0, cell.alpha - fadeSpeed);
-        if (cell.alpha <= 0) {
-          this.cells.delete(cell.id);
-        }
-      } else if (cell.alpha < 1) {
-        // Fade in
-        cell.alpha = Math.min(1, cell.alpha + fadeSpeed);
-      }
     }
   }
 
