@@ -271,11 +271,15 @@ export class Renderer {
     }
   }
 
+  private gameZoom = 1; // zoom based on player mass only (no userZoom)
+
   private updateCamera(dt: number) {
     const target = this.state.computeCamera();
     const smooth = Math.min(1, dt * 5);
     this.camX += (target.x - this.camX) * smooth;
     this.camY += (target.y - this.camY) * smooth;
+
+    this.gameZoom += (target.zoom - this.gameZoom) * smooth;
     const targetZoom = target.zoom * this.userZoom;
     this.camZoom += (targetZoom - this.camZoom) * smooth;
   }
@@ -293,12 +297,20 @@ export class Renderer {
     const theme = this.settings.darkMode ? THEMES.dark : THEMES.light;
 
     // Compute viewport bounds (world coords)
+    // Screen viewport = full visible area (used for canvas transform)
     const halfW = (cw / 2) / this.camZoom;
     const halfH = (ch / 2) / this.camZoom;
-    this.viewLeft = this.camX - halfW;
-    this.viewRight = this.camX + halfW;
-    this.viewTop = this.camY - halfH;
-    this.viewBottom = this.camY + halfH;
+    // Game viewport = area where cells should be visible, based on player mass
+    // only (ignoring userZoom). When zoomed out, food stays in a fixed-size region
+    // and the edges appear as empty space — no chunk pop-in at the boundaries.
+    const gameHalfW = (cw / 2) / this.gameZoom;
+    const gameHalfH = (ch / 2) / this.gameZoom;
+    const cullHalfW = Math.min(halfW, gameHalfW);
+    const cullHalfH = Math.min(halfH, gameHalfH);
+    this.viewLeft = this.camX - cullHalfW;
+    this.viewRight = this.camX + cullHalfW;
+    this.viewTop = this.camY - cullHalfH;
+    this.viewBottom = this.camY + cullHalfH;
 
     // Clear
     ctx.fillStyle = theme.bg;
@@ -450,8 +462,7 @@ export class Renderer {
     sorted.length = 0;
     for (const cell of this.state.cells.values()) {
       // Viewport culling: skip cells entirely outside the visible area
-      // Use a generous margin for effects that extend beyond the cell (3x radius)
-      const margin = cell.size * 3;
+      const margin = cell.size;
       if (cell.x + margin < this.viewLeft || cell.x - margin > this.viewRight ||
           cell.y + margin < this.viewTop || cell.y - margin > this.viewBottom) continue;
       sorted.push(cell);

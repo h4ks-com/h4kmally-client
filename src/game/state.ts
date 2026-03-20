@@ -239,20 +239,20 @@ export class GameState {
     const camX = this.camera.x || cx;
     const camY = this.camera.y || cy;
 
-    // Zoom: based on COMBINED mass of primary + multi cells
-    let totalMass = 0;
+    // OgarII zoom formula: scale = min(64 / totalSize, 1) ^ 0.4
+    // where totalSize = sum of all owned cell radii
+    let totalSizeSum = 0;
     for (const id of this.myCellIds) {
       const c = this.cells.get(id);
-      if (c) totalMass += (c.size * c.size) / 100;
+      if (c) totalSizeSum += c.size;
     }
     for (const id of this.multiCellIds) {
       const c = this.cells.get(id);
-      if (c) totalMass += (c.size * c.size) / 100;
+      if (c) totalSizeSum += c.size;
     }
-    const equivRadius = Math.sqrt(Math.max(1, totalMass)) * 10;
-    const baseSize = 100;
-    const targetZoom = Math.sqrt(baseSize / Math.max(baseSize, equivRadius));
-    const clampedZoom = Math.max(0.08, Math.min(1.5, targetZoom));
+    if (totalSizeSum < 1) totalSizeSum = 1;
+    const targetZoom = Math.pow(Math.min(64 / totalSizeSum, 1), 0.4);
+    const clampedZoom = Math.max(0.01, Math.min(1.0, targetZoom));
 
     return { x: camX, y: camY, zoom: clampedZoom };
   }
