@@ -526,9 +526,18 @@ export class Renderer {
       ctx.rotate(-warpAngle);
     }
 
+    // Apply fade alpha (fade-in on spawn, fade-out on viewport exit)
+    const baseAlpha = cell.alpha;
+    if (baseAlpha <= 0) {
+      ctx.restore();
+      return; // fully transparent, skip drawing
+    }
+
     // Dim inactive multibox cells slightly
     if (isInactive) {
-      ctx.globalAlpha = 0.6;
+      ctx.globalAlpha = baseAlpha * 0.6;
+    } else if (baseAlpha < 1) {
+      ctx.globalAlpha = baseAlpha;
     }
 
     if (cell.isVirus) {
@@ -543,8 +552,8 @@ export class Renderer {
     }
 
     // Restore alpha before drawing text
-    if (isInactive) {
-      ctx.globalAlpha = 1.0;
+    if (isInactive || baseAlpha < 1) {
+      ctx.globalAlpha = baseAlpha;
     }
 
     // Draw active indicator ring for the controlled slot
