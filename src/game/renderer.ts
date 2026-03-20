@@ -12,7 +12,7 @@ const TEXT_FILL = "#fff";
 
 // Jelly physics constants
 const JELLY_POINTS_MIN = 5;
-const JELLY_POINTS_MAX = 120;
+const JELLY_POINTS_MAX = 50;
 const PI2 = Math.PI * 2;
 
 const THEMES = {
@@ -280,11 +280,25 @@ export class Renderer {
     this.camZoom += (targetZoom - this.camZoom) * smooth;
   }
 
+  // Viewport bounds in world coords (computed once per frame)
+  private viewLeft = 0;
+  private viewRight = 0;
+  private viewTop = 0;
+  private viewBottom = 0;
+
   private render() {
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
     const theme = this.settings.darkMode ? THEMES.dark : THEMES.light;
+
+    // Compute viewport bounds (world coords)
+    const halfW = (cw / 2) / this.camZoom;
+    const halfH = (ch / 2) / this.camZoom;
+    this.viewLeft = this.camX - halfW;
+    this.viewRight = this.camX + halfW;
+    this.viewTop = this.camY - halfH;
+    this.viewBottom = this.camY + halfH;
 
     // Clear
     ctx.fillStyle = theme.bg;
@@ -329,7 +343,7 @@ export class Renderer {
     } else {
       // Slow path: draw all grid as warped curves through black hole regions.
       // Every line is segmented; segments near a black hole get pulled.
-      const segLen = GRID_SPACING * 0.25;
+      const segLen = GRID_SPACING * 0.5;
 
       ctx.strokeStyle = theme.grid;
       ctx.lineWidth = 1 / this.camZoom;
@@ -393,8 +407,8 @@ export class Renderer {
     } else {
       // Draw border as segmented lines warped near black holes
       // Use adaptive segmentation: finer near black holes for smooth stretch
-      const baseSegLen = GRID_SPACING * 0.5;
-      const fineSegLen = GRID_SPACING * 0.12; // much finer near warp zone
+      const baseSegLen = GRID_SPACING * 0.8;
+      const fineSegLen = GRID_SPACING * 0.25;
 
       const drawWarpedLine = (x1: number, y1: number, x2: number, y2: number) => {
         const ldx = x2 - x1, ldy = y2 - y1;
@@ -435,6 +449,11 @@ export class Renderer {
     const sorted = this.sortedCells;
     sorted.length = 0;
     for (const cell of this.state.cells.values()) {
+      // Viewport culling: skip cells entirely outside the visible area
+      // Use a generous margin for effects that extend beyond the cell (3x radius)
+      const margin = cell.size * 3;
+      if (cell.x + margin < this.viewLeft || cell.x - margin > this.viewRight ||
+          cell.y + margin < this.viewTop || cell.y - margin > this.viewBottom) continue;
       sorted.push(cell);
     }
     sorted.sort((a, b) => a.size - b.size);
@@ -545,7 +564,7 @@ export class Renderer {
       if (effectFn) {
         // Pass cell ID to effect for per-cell state tracking
         (ctx as unknown as { _effectCellId?: number })._effectCellId = cell.id;
-        effectFn(ctx, drawSize, r, g, b, performance.now() / 1000);
+        effectFn(ctx, drawSize, r, g, b, performance.now() / 1000, drawSize * this.camZoom);
       }
     }
 
