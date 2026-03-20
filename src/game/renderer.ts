@@ -303,8 +303,11 @@ export class Renderer {
     // Game viewport = area where cells should be visible, based on player mass
     // only (ignoring userZoom). When zoomed out, food stays in a fixed-size region
     // and the edges appear as empty space — no chunk pop-in at the boundaries.
-    const gameHalfW = (cw / 2) / this.gameZoom;
-    const gameHalfH = (ch / 2) / this.gameZoom;
+    // When spectating (no owned cells), use the full screen viewport since the
+    // server already controls what cells are sent.
+    const isSpectating = this.state.myCellIds.size === 0 && this.state.multiCellIds.size === 0;
+    const gameHalfW = isSpectating ? halfW : (cw / 2) / this.gameZoom;
+    const gameHalfH = isSpectating ? halfH : (ch / 2) / this.gameZoom;
     const cullHalfW = Math.min(halfW, gameHalfW);
     const cullHalfH = Math.min(halfH, gameHalfH);
     this.viewLeft = this.camX - cullHalfW;

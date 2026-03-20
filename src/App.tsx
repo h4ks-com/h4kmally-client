@@ -656,17 +656,6 @@ function GameApp() {
           <div className="spectator-overlay">
             <div className="spectator-eyes">👀</div>
             <div className="spectator-hint">Press F to follow &middot; Esc for lobby</div>
-            {!!userProfile?.isAdmin && (
-              <button
-                className="spectator-godmode"
-                onClick={() => {
-                  const conn = connRef.current;
-                  if (conn?.connected) conn.sendGodMode();
-                }}
-              >
-                🌐 God Mode
-              </button>
-            )}
           </div>
         </>
       )}

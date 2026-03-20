@@ -71,6 +71,7 @@ export interface Border {
 export interface Camera {
   x: number;
   y: number;
+  zoom: number;
 }
 
 export interface ChatMessage {
@@ -240,15 +241,6 @@ export class Connection {
     this.ws.send(buf.buffer);
   }
 
-  /** Toggle admin god-mode viewport. */
-  sendGodMode() {
-    if (!this.shuffle || !this.ws) return;
-    const buf = new Uint8Array(2);
-    buf[0] = this.shuffle.encode(CLIENT_SPECTATOR_CMD);
-    buf[1] = 0x02;
-    this.ws.send(buf.buffer);
-  }
-
   /** Toggle multibox on/off. */
   sendMultiboxToggle() {
     if (!this.shuffle || !this.ws) return;
@@ -414,8 +406,8 @@ export class Connection {
   private parseCamera(r: Reader) {
     const x = r.readFloat32();
     const y = r.readFloat32();
-    r.readFloat32(); // reserved
-    this.cb.onCamera?.({ x, y });
+    const zoom = r.readFloat32();
+    this.cb.onCamera?.({ x, y, zoom });
   }
 
   private parseBorder(r: Reader, _totalLen: number) {

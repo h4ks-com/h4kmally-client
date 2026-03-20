@@ -46,7 +46,7 @@ export class GameState {
   myCellIds: Set<number> = new Set();
   multiCellIds: Set<number> = new Set();
   border: Border = { left: -7071, top: -7071, right: 7071, bottom: 7071 };
-  camera: Camera = { x: 0, y: 0 };
+  camera: Camera = { x: 0, y: 0, zoom: 0 };
   cameraZoom: number = 1;
   leaderboard: LeaderboardEntry[] = [];
   chatHistory: ChatEntry[] = [];
@@ -213,8 +213,9 @@ export class GameState {
 
   computeCamera(): { x: number; y: number; zoom: number } {
     if (this.myCellIds.size === 0 && this.multiCellIds.size === 0) {
-      // Spectator mode: use server camera, same zoom as a starting player
-      return { x: this.camera.x, y: this.camera.y, zoom: 1.0 };
+      // Spectator mode: use server camera and server-sent zoom
+      const zoom = this.camera.zoom > 0 ? this.camera.zoom : 1.0;
+      return { x: this.camera.x, y: this.camera.y, zoom };
     }
 
     // Camera center: use the server-sent camera position (tracks the active player)
