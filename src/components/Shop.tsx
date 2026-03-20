@@ -134,8 +134,6 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
   const effectItems = items.filter(i => i.section === "effect");
   const bundleItems = items.filter(i => i.section === "bundle");
 
-  const perBean = (item: ShopItem) => (item.tokens / item.price).toFixed(1);
-
   // Compute bonus % vs base tier for skin/effect items
   const skinBaseRate = skinItems.length > 0 ? skinItems[0].tokens / skinItems[0].price : 1;
   const effectBaseRate = effectItems.length > 0 ? effectItems[0].tokens / effectItems[0].price : 1;
