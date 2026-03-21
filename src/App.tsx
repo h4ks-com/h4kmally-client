@@ -201,6 +201,14 @@ function GameApp() {
         if (s === "disconnected") {
           setAlive(false);
           setShowLobby(true);
+          // Reset multibox server state — server doesn't know about us anymore
+          setMultiboxEnabled(false);
+          multiboxEnabledRef.current = false;
+          setMultiboxSlot(0);
+          setMultiAlive(false);
+          if (rendererRef.current) {
+            rendererRef.current.multiboxSlot = 0;
+          }
         }
       },
       onWorldUpdate: (ev) => {
@@ -474,11 +482,19 @@ function GameApp() {
         e.preventDefault();
         conn.sendMultiboxSwitch();
       }
+      if (e.key === "Shift") {
+        e.preventDefault();
+        conn.sendDirectionLock(true);
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === "q" || e.key === "Q") stopEject("q");
       if (e.key === "w" || e.key === "W") stopEject("w");
+      if (e.key === "Shift") {
+        const conn = connRef.current;
+        if (conn?.connected) conn.sendDirectionLock(false);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);

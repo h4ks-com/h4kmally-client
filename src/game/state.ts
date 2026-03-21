@@ -160,6 +160,7 @@ export class GameState {
 
   onClearMine() {
     this.myCellIds.clear();
+    this.multiCellIds.clear();
     this.alive = false;
     this.score = 0;
   }

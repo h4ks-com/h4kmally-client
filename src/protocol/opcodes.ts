@@ -7,6 +7,7 @@ export const CLIENT_SPLIT = 17;
 export const CLIENT_EJECT = 21;
 export const CLIENT_MULTIBOX_TOGGLE = 22;
 export const CLIENT_MULTIBOX_SWITCH = 23;
+export const CLIENT_DIRECTION_LOCK = 24;
 export const CLIENT_CHAT = 99;
 export const CLIENT_STAT_UPDATE = 191;
 export const CLIENT_SPECTATE = 205;

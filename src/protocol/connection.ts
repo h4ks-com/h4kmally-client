@@ -8,6 +8,7 @@ import {
   CLIENT_EJECT,
   CLIENT_MULTIBOX_TOGGLE,
   CLIENT_MULTIBOX_SWITCH,
+  CLIENT_DIRECTION_LOCK,
   CLIENT_CHAT,
   CLIENT_SPECTATE,
   CLIENT_SPECTATOR_CMD,
@@ -254,6 +255,15 @@ export class Connection {
     if (!this.shuffle || !this.ws) return;
     const buf = new Uint8Array(1);
     buf[0] = this.shuffle.encode(CLIENT_MULTIBOX_SWITCH);
+    this.ws.send(buf.buffer);
+  }
+
+  /** Lock or unlock movement direction (Shift key). */
+  sendDirectionLock(lock: boolean) {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(2);
+    buf[0] = this.shuffle.encode(CLIENT_DIRECTION_LOCK);
+    buf[1] = lock ? 1 : 0;
     this.ws.send(buf.buffer);
   }
 
