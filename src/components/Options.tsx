@@ -5,9 +5,10 @@ interface OptionsProps {
   settings: Settings;
   onChange: (s: Settings) => void;
   onClose: () => void;
+  onOpenKeybinds?: () => void;
 }
 
-export function Options({ settings, onChange, onClose }: OptionsProps) {
+export function Options({ settings, onChange, onClose, onOpenKeybinds }: OptionsProps) {
   const toggle = (key: keyof Settings) => {
     onChange({ ...settings, [key]: !settings[key] });
   };
@@ -74,6 +75,14 @@ export function Options({ settings, onChange, onClose }: OptionsProps) {
             Auto Respawn
           </label>
         </div>
+
+        {onOpenKeybinds && (
+          <div className="options-section">
+            <button className="options-keybinds-btn" onClick={onOpenKeybinds}>
+              Keybinds
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

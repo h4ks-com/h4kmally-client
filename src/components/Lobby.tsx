@@ -52,11 +52,13 @@ interface LobbyProps {
   isAdmin: boolean;
   onOpenAdmin: () => void;
   onOpenShop: () => void;
+  onOpenClan: () => void;
   sessionToken: string | null;
   userLevel: number;
   xpCurrent: number;
   xpNeeded: number;
   onOpenOptions: () => void;
+  onOpenHowToPlay: () => void;
   multiboxEnabled: boolean;
   onMultiboxToggle: () => void;
   pendingTokens: Array<{skinName: string}>;
@@ -84,11 +86,13 @@ export function Lobby({
   isAdmin,
   onOpenAdmin,
   onOpenShop,
+  onOpenClan,
   sessionToken,
   userLevel,
   xpCurrent,
   xpNeeded,
   onOpenOptions,
+  onOpenHowToPlay,
   multiboxEnabled,
   onMultiboxToggle,
   pendingTokens,
@@ -376,6 +380,7 @@ export function Lobby({
           )}
 
           <div className="lobby-footer">
+            <button className="btn-howtoplay" onClick={onOpenHowToPlay}>&#x2753; How to Play</button>
             <button className="btn-options" onClick={onOpenOptions} title="Options (Esc)">&#9881; Options</button>
             {connectionState === "connecting" && <span className="lobby-connection-state">Connecting…</span>}
           </div>
@@ -437,6 +442,15 @@ export function Lobby({
               </>
             )}
           </div>
+
+          {isAuthenticated && (
+            <button
+              className="clan-browse-btn"
+              onClick={onOpenClan}
+            >
+              ⚔️ Clans
+            </button>
+          )}
         </div>
       </div>
 

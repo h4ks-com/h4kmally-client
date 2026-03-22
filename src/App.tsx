@@ -4,16 +4,21 @@ import { Connection } from "./protocol";
 import type { ConnectionState, LeaderboardEntry } from "./protocol";
 import { GameState, Renderer, loadSettings, saveSettings } from "./game";
 import type { ChatEntry, Settings } from "./game";
+import { loadKeybinds, saveKeybinds, keyToBinding, mouseButtonToBinding } from "./game/keybinds";
+import type { Keybinds } from "./game/keybinds";
 import { Lobby } from "./components/Lobby";
 import { HUD } from "./components/HUD";
 import { Minimap } from "./components/Minimap";
 import { Chat } from "./components/Chat";
 import { Options } from "./components/Options";
+import { KeybindPanel } from "./components/KeybindPanel";
+import { HowToPlay } from "./components/HowToPlay";
 import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
 import { Shop } from "./components/Shop";
 import { DailyGift } from "./components/DailyGift";
 import { MultiboxIndicator } from "./components/MultiboxIndicator";
+import { ClanPanel } from "./components/ClanPanel";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -25,6 +30,7 @@ export interface UserProfile {
   gamesPlayed: number;
   topScore: number;
   isAdmin?: boolean;
+  clanID?: string;
 }
 
 export default function App() {
@@ -69,11 +75,18 @@ function GameApp() {
   const [showOptions, setShowOptions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showClanPanel, setShowClanPanel] = useState(false);
   const [score, setScore] = useState(0);
   const [latency, setLatency] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
+  const [clanChatMessages, setClanChatMessages] = useState<ChatEntry[]>([]);
+  const [inClan, setInClan] = useState(false);
   const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [keybinds, setKeybinds] = useState<Keybinds>(loadKeybinds);
+  const keybindsRef = useRef<Keybinds>(keybinds);
+  const [showKeybinds, setShowKeybinds] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   // Auth state
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -148,6 +161,7 @@ function GameApp() {
         if (resp.ok) {
           const data = await resp.json();
           setUserProfile(data.user);
+          setInClan(!!data.user?.clanId);
           if (data.level) setUserLevel(data.level);
           if (data.xpCurrent !== undefined) setXpCurrent(data.xpCurrent);
           if (data.xpNeeded !== undefined) setXpNeeded(data.xpNeeded);
@@ -266,6 +280,16 @@ function GameApp() {
         gs.onChat(msg);
         setChatMessages([...gs.chatHistory]);
       },
+      onClanChat: (msg) => {
+        gs.onClanChat(msg);
+        setClanChatMessages([...gs.clanChatHistory]);
+      },
+      onClanPositions: (members) => {
+        gs.onClanPositions(members);
+      },
+      onBattleRoyale: (br) => {
+        gs.onBattleRoyale(br);
+      },
       onPingReply: (ms) => {
         gs.latency = ms;
         setLatency(ms);
@@ -352,6 +376,7 @@ function GameApp() {
         if (resp.ok) {
           const data = await resp.json();
           setUserProfile(data.user);
+          setInClan(!!data.user?.clanId);
           setSessionToken(data.session);
           const wsUrl = baseWs + (baseWs.includes("?") ? "&" : "?") +
             "session=" + encodeURIComponent(data.session);
@@ -400,41 +425,48 @@ function GameApp() {
     };
   }, [alive]);
 
-  // Keyboard controls
+  // Keyboard + mouse controls (uses keybindsRef for latest bindings)
   useEffect(() => {
-    // Eject intervals: Q = fast (25/sec), W = slow (4/sec)
+    keybindsRef.current = keybinds;
+  }, [keybinds]);
+
+  useEffect(() => {
     let ejectInterval: ReturnType<typeof setInterval> | null = null;
     const activeEjectKeys = new Set<string>();
 
-    const startEject = (key: string, rateMs: number) => {
-      if (activeEjectKeys.has(key)) return; // already held
-      activeEjectKeys.add(key);
-      // If another eject key is already running, stop it — new key takes over
+    const startEject = (tag: string, rateMs: number) => {
+      if (activeEjectKeys.has(tag)) return;
+      activeEjectKeys.add(tag);
       if (ejectInterval) clearInterval(ejectInterval);
       const conn = connRef.current;
-      if (conn?.connected) conn.sendEject(); // immediate first shot
+      if (conn?.connected) conn.sendEject();
       ejectInterval = setInterval(() => {
         const c = connRef.current;
         if (c?.connected) c.sendEject();
       }, rateMs);
     };
 
-    const stopEject = (key: string) => {
-      activeEjectKeys.delete(key);
+    const stopEject = (tag: string) => {
+      activeEjectKeys.delete(tag);
       if (activeEjectKeys.size === 0 && ejectInterval) {
         clearInterval(ejectInterval);
         ejectInterval = null;
       }
     };
 
+    /** Check if a keyboard key matches a keybind action */
+    const keyMatches = (eventKey: string, action: keyof Keybinds): boolean => {
+      const bound = keybindsRef.current[action];
+      if (bound === null) return false;
+      return keyToBinding(eventKey) === bound;
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
-      // Don't handle if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      // Escape toggles options modal, or returns to lobby when spectating
+      // Escape is always hardcoded: toggle options / exit spectator
       if (e.key === "Escape") {
         if (!alive && !showLobby) {
-          // Exit spectator mode back to lobby
           setShowLobby(true);
           return;
         }
@@ -442,12 +474,11 @@ function GameApp() {
         return;
       }
 
-      // Spectator: F to toggle follow mode
+      // Spectator follow
       if (!alive && !showLobby) {
-        if (e.key === "f" || e.key === "F") {
+        if (keyMatches(e.key, "spectatorFollow")) {
           const conn = connRef.current;
           if (conn?.connected) conn.sendSpectatorFollow();
-          return;
         }
         return;
       }
@@ -455,74 +486,80 @@ function GameApp() {
       const conn = connRef.current;
       if (!conn?.connected || !alive) return;
 
-      if (e.key === " " || e.code === "Space") {
+      if (keyMatches(e.key, "split")) {
         e.preventDefault();
         conn.sendSplit();
       }
-      // Multi-split macros: A=double, S=triple, D=quad
-      if (e.key === "a" || e.key === "A") {
+      if (keyMatches(e.key, "doubleSplit")) {
         e.preventDefault();
         for (let i = 0; i < 2; i++) conn.sendSplit();
       }
-      if (e.key === "s" || e.key === "S") {
+      if (keyMatches(e.key, "tripleSplit")) {
         e.preventDefault();
         for (let i = 0; i < 3; i++) conn.sendSplit();
       }
-      if (e.key === "d" || e.key === "D") {
+      if (keyMatches(e.key, "quadSplit")) {
         e.preventDefault();
         for (let i = 0; i < 4; i++) conn.sendSplit();
       }
-      if (e.key === "q" || e.key === "Q") {
-        startEject("q", 40); // 25 per second
+      if (keyMatches(e.key, "fastEject")) {
+        startEject("fastEject", 40);
       }
-      if (e.key === "w" || e.key === "W") {
-        startEject("w", 250); // 4 per second
+      if (keyMatches(e.key, "slowEject")) {
+        startEject("slowEject", 250);
       }
-      if (e.key === "Tab") {
+      if (keyMatches(e.key, "multiboxSwitch")) {
         e.preventDefault();
         conn.sendMultiboxSwitch();
       }
-      if (e.key === "Shift") {
+      if (keyMatches(e.key, "directionLock")) {
         e.preventDefault();
         conn.sendDirectionLock(true);
+      }
+      if (keyMatches(e.key, "freeze")) {
+        e.preventDefault();
+        conn.sendFreezePosition(true);
       }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "q" || e.key === "Q") stopEject("q");
-      if (e.key === "w" || e.key === "W") stopEject("w");
-      if (e.key === "Shift") {
+      if (keyMatches(e.key, "fastEject")) stopEject("fastEject");
+      if (keyMatches(e.key, "slowEject")) stopEject("slowEject");
+      if (keyMatches(e.key, "directionLock")) {
         const conn = connRef.current;
         if (conn?.connected) conn.sendDirectionLock(false);
+      }
+      if (keyMatches(e.key, "freeze")) {
+        const conn = connRef.current;
+        if (conn?.connected) conn.sendFreezePosition(false);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
-    // Mouse controls: left-click hold = rapid eject (same as Q), right-click = split
+    // Mouse controls: configurable via keybinds.mouseEject / keybinds.mouseSplit
     const onMouseDown = (e: MouseEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const conn = connRef.current;
       if (!conn?.connected || !alive) return;
 
-      if (e.button === 0) {
-        // Left mouse button = rapid eject (same as Q)
-        startEject("mouse0", 40);
+      const mb = mouseButtonToBinding(e.button);
+      if (mb === keybindsRef.current.mouseEject) {
+        startEject("mouse", 40);
       }
-      if (e.button === 2) {
-        // Right mouse button = split
+      if (mb === keybindsRef.current.mouseSplit) {
         e.preventDefault();
         conn.sendSplit();
       }
     };
 
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) stopEject("mouse0");
+      const mb = mouseButtonToBinding(e.button);
+      if (mb === keybindsRef.current.mouseEject) stopEject("mouse");
     };
 
     const onContextMenu = (e: MouseEvent) => {
-      // Prevent right-click menu on the game canvas
       if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
       }
@@ -581,6 +618,20 @@ function GameApp() {
     if (conn) conn.sendChat(text);
   }, []);
 
+  const handleClanChatSend = useCallback((text: string) => {
+    const base = serverBaseUrl || wsBaseUrlRef.current?.replace("ws", "http")?.replace(/:\d+$/, ":3002") || "";
+    const token = sessionToken;
+    if (!base || !token) return;
+    fetch(`${base}/api/clans/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    }).catch(() => {});
+  }, [serverBaseUrl, sessionToken]);
+
   const handleSettingsChange = useCallback((newSettings: Settings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
@@ -588,6 +639,11 @@ function GameApp() {
     if (rendererRef.current) {
       rendererRef.current.settings = newSettings;
     }
+  }, []);
+
+  const handleKeybindsChange = useCallback((newKeybinds: Keybinds) => {
+    setKeybinds(newKeybinds);
+    saveKeybinds(newKeybinds);
   }, []);
 
   return (
@@ -610,6 +666,22 @@ function GameApp() {
           settings={settings}
           onChange={handleSettingsChange}
           onClose={() => setShowOptions(false)}
+          onOpenKeybinds={() => setShowKeybinds(true)}
+        />
+      )}
+
+      {showKeybinds && (
+        <KeybindPanel
+          keybinds={keybinds}
+          onChange={handleKeybindsChange}
+          onClose={() => setShowKeybinds(false)}
+        />
+      )}
+
+      {showHowToPlay && (
+        <HowToPlay
+          keybinds={keybinds}
+          onClose={() => setShowHowToPlay(false)}
         />
       )}
 
@@ -629,6 +701,7 @@ function GameApp() {
           isAdmin={!!userProfile?.isAdmin}
           onOpenAdmin={handleOpenAdmin}
           onOpenShop={handleOpenShop}
+          onOpenClan={() => setShowClanPanel(true)}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           sessionToken={sessionToken}
@@ -636,6 +709,7 @@ function GameApp() {
           xpCurrent={xpCurrent}
           xpNeeded={xpNeeded}
           onOpenOptions={() => setShowOptions(true)}
+          onOpenHowToPlay={() => setShowHowToPlay(true)}
           multiboxEnabled={multiboxWanted}
           onMultiboxToggle={handleMultiboxToggle}
           pendingTokens={pendingTokens}
@@ -692,6 +766,27 @@ function GameApp() {
         />
       )}
 
+      {showClanPanel && serverBaseUrl && sessionToken && (
+        <ClanPanel
+          serverBaseUrl={serverBaseUrl}
+          sessionToken={sessionToken}
+          isAdmin={!!userProfile?.isAdmin}
+          onClose={() => setShowClanPanel(false)}
+          onClanChange={() => {
+            // Re-fetch profile to update inClan
+            fetch(`${serverBaseUrl}/api/auth/profile?session=${encodeURIComponent(sessionToken)}`)
+              .then(r => r.json())
+              .then(data => {
+                if (data.user) {
+                  setUserProfile(data.user);
+                  setInClan(!!data.user.clanId);
+                }
+              })
+              .catch(() => {});
+          }}
+        />
+      )}
+
       {isAuthenticated && serverBaseUrl && sessionToken && showLobby && (
         <DailyGift
           serverBaseUrl={serverBaseUrl}
@@ -700,7 +795,13 @@ function GameApp() {
       )}
 
       {connectionState === "connected" && (
-        <Chat messages={chatMessages} onSend={handleChatSend} />
+        <Chat
+          messages={chatMessages}
+          clanMessages={clanChatMessages}
+          inClan={inClan}
+          onSend={handleChatSend}
+          onClanSend={handleClanChatSend}
+        />
       )}
     </div>
   );

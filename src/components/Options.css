@@ -110,3 +110,22 @@
 .options-toggle input:checked + .toggle-slider::after {
   transform: translateX(16px);
 }
+
+.options-keybinds-btn {
+  width: 100%;
+  padding: 10px 0;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.options-keybinds-btn:hover {
+  border-color: #888;
+  background: #f0f0f0;
+  color: #333;
+}

@@ -1,0 +1,161 @@
+.keybind-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 210;
+}
+
+.keybind-panel {
+  background: #fff;
+  border-radius: 15px;
+  padding: 24px 28px 20px;
+  min-width: 340px;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #333136;
+  font-family: Arial, sans-serif;
+}
+
+.keybind-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.keybind-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #333136;
+}
+
+.keybind-close {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.keybind-close:hover {
+  color: #333;
+}
+
+.keybind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 8px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+
+.keybind-row:hover {
+  background: #f5f5f5;
+}
+
+.keybind-row--listening {
+  background: #e8f0ff;
+}
+
+.keybind-action {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  flex: 1;
+}
+
+.keybind-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keybind-key {
+  min-width: 90px;
+  padding: 5px 12px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.keybind-key:hover {
+  border-color: #888;
+  background: #f0f0f0;
+}
+
+.keybind-key--active {
+  border-color: #4a90d9;
+  background: #e0ecff;
+  color: #4a90d9;
+  animation: keybind-pulse 1s infinite;
+}
+
+@keyframes keybind-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.keybind-unbind {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #bbb;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.keybind-unbind:hover {
+  background: #fee;
+  color: #d44;
+}
+
+.keybind-footer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.keybind-reset {
+  padding: 7px 16px;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.keybind-reset:hover {
+  border-color: #888;
+  color: #555;
+  background: #f0f0f0;
+}

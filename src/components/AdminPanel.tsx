@@ -61,6 +61,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [uploadCategory, setUploadCategory] = useState("free");
   const [uploadRarity, setUploadRarity] = useState("common");
   const [uploadMinLevel, setUploadMinLevel] = useState(1);
+  const [brStatus, setBrStatus] = useState<{ state: string; playersAlive: number; timeRemaining: number } | null>(null);
 
   const api = useCallback(
     async (endpoint: string, method = "GET", body?: Record<string, unknown>) => {
@@ -270,6 +271,39 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     }
   };
 
+  const fetchBRStatus = useCallback(async () => {
+    try {
+      const data = await api("br/status");
+      setBrStatus(data);
+    } catch { /* ignore */ }
+  }, [api]);
+
+  useEffect(() => {
+    fetchBRStatus();
+    const iv = setInterval(fetchBRStatus, 3000);
+    return () => clearInterval(iv);
+  }, [fetchBRStatus]);
+
+  const handleBRStart = async () => {
+    try {
+      await api("br/start", "POST");
+      showMsg("success", "Battle Royale started!");
+      fetchBRStatus();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
+  const handleBRStop = async () => {
+    try {
+      await api("br/stop", "POST");
+      showMsg("success", "Battle Royale stopped");
+      fetchBRStatus();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
   return (
     <div className="admin-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="admin-panel">
@@ -309,6 +343,28 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
 
         <div className="admin-content">
           {message && <div className={`admin-msg ${message.type}`}>{message.text}</div>}
+
+          {/* Battle Royale Controls */}
+          <div className="admin-br-controls">
+            <strong>Battle Royale</strong>
+            <span className="admin-br-status">
+              {brStatus ? `${brStatus.state} | ${brStatus.playersAlive} alive` : "Loading..."}
+            </span>
+            <button
+              className="admin-btn admin-btn-br-start"
+              onClick={handleBRStart}
+              disabled={brStatus?.state === "active" || brStatus?.state === "countdown"}
+            >
+              Start BR
+            </button>
+            <button
+              className="admin-btn admin-btn-br-stop"
+              onClick={handleBRStop}
+              disabled={brStatus?.state === "inactive"}
+            >
+              Stop BR
+            </button>
+          </div>
 
           {tab === "online" && (
             <>

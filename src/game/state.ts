@@ -1,4 +1,4 @@
-import type { WorldUpdateEvent, Border, Camera, LeaderboardEntry, ChatMessage } from "../protocol";
+import type { WorldUpdateEvent, Border, Camera, LeaderboardEntry, ChatMessage, ClanMemberPosition, BattleRoyaleState } from "../protocol";
 
 // ── Game Cell ──────────────────────────────────────────────
 
@@ -50,6 +50,9 @@ export class GameState {
   cameraZoom: number = 1;
   leaderboard: LeaderboardEntry[] = [];
   chatHistory: ChatEntry[] = [];
+  clanChatHistory: ChatEntry[] = [];
+  clanPositions: ClanMemberPosition[] = [];
+  battleRoyale: BattleRoyaleState | null = null;
   latency: number = 0;
   score: number = 0;
   alive: boolean = false;
@@ -173,6 +176,25 @@ export class GameState {
     this.chatHistory.push({ ...msg, timestamp: Date.now() });
     if (this.chatHistory.length > CHAT_HISTORY_MAX) {
       this.chatHistory.shift();
+    }
+  }
+
+  onClanChat(msg: ChatMessage) {
+    this.clanChatHistory.push({ ...msg, timestamp: Date.now() });
+    if (this.clanChatHistory.length > CHAT_HISTORY_MAX) {
+      this.clanChatHistory.shift();
+    }
+  }
+
+  onClanPositions(members: ClanMemberPosition[]) {
+    this.clanPositions = members;
+  }
+
+  onBattleRoyale(br: BattleRoyaleState) {
+    if (br.state === 0) {
+      this.battleRoyale = null;
+    } else {
+      this.battleRoyale = br;
     }
   }
 

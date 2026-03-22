@@ -216,3 +216,37 @@
   background: rgba(39, 174, 96, 0.2);
   color: #27ae60;
 }
+
+/* ── Battle Royale Controls ── */
+.admin-br-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: rgba(255, 50, 50, 0.08);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.admin-br-status {
+  color: #ccc;
+  margin-right: auto;
+}
+
+.admin-btn-br-start {
+  background: #c0392b !important;
+}
+
+.admin-btn-br-start:hover:not(:disabled) {
+  background: #e74c3c !important;
+}
+
+.admin-btn-br-stop {
+  background: #555 !important;
+}
+
+.admin-btn-br-stop:hover:not(:disabled) {
+  background: #777 !important;
+}

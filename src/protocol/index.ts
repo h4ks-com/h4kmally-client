@@ -9,5 +9,7 @@ export type {
   Border,
   Camera,
   ChatMessage,
+  ClanMemberPosition,
+  BattleRoyaleState,
   MultiboxState,
 } from "./connection";

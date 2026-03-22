@@ -1,0 +1,145 @@
+.htp-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 220;
+}
+
+.htp-panel {
+  background: #fff;
+  border-radius: 15px;
+  padding: 24px 28px 20px;
+  width: 520px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #333136;
+  font-family: Arial, sans-serif;
+}
+
+.htp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.htp-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #333136;
+}
+
+.htp-close {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.htp-close:hover {
+  color: #333;
+}
+
+.htp-content {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.htp-section {
+  margin-bottom: 18px;
+}
+
+.htp-section:last-child {
+  margin-bottom: 4px;
+}
+
+.htp-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #555;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.htp-section p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 6px;
+  color: #444;
+}
+
+.htp-section ul {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 18px;
+  color: #444;
+}
+
+.htp-section li {
+  margin-bottom: 4px;
+}
+
+.htp-section kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #f3f3f3;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #333;
+  box-shadow: 0 1px 0 #bbb;
+}
+
+/* Key binding list */
+.htp-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.htp-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.htp-key-row kbd {
+  min-width: 70px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.htp-key-row span {
+  font-size: 13px;
+  color: #444;
+}
+
+/* Scrollbar */
+.htp-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.htp-content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.htp-content::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}

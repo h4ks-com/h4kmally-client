@@ -15,6 +15,12 @@ const JELLY_POINTS_MIN = 5;
 const JELLY_POINTS_MAX = 50;
 const PI2 = Math.PI * 2;
 
+// Trail constants
+const TRAIL_MAX_POINTS = 32;       // max positions stored per cell
+const TRAIL_MIN_DISTANCE = 2;      // min distance² to record a new point
+const TRAIL_ALPHA = 0.30;          // base opacity of the trail fill
+const TRAIL_WIDTH_FACTOR = 1.0;    // trail width at head = full cell radius
+
 const THEMES = {
   dark: {
     bg: "#111a22",
@@ -58,6 +64,9 @@ export class Renderer {
 
   // Frame counter for periodic effect cleanup
   private frameCount = 0;
+
+  // Cell trails: cell ID → ring buffer of past positions [{x,y}]
+  private trails = new Map<number, { x: number; y: number }[]>();
 
   // Server base URL for skin images (set after connect)
   serverBaseUrl = "";
@@ -198,6 +207,142 @@ export class Renderer {
     return false;
   }
 
+  /** Update trail positions for all cells. Call once per frame before render. */
+  private updateTrails() {
+    const activeCells = this.state.cells;
+
+    // Remove trails for dead cells
+    for (const id of this.trails.keys()) {
+      if (!activeCells.has(id)) this.trails.delete(id);
+    }
+
+    // Record current position for each cell (only player cells and viruses > certain size)
+    for (const [id, cell] of activeCells) {
+      // Only trail player cells (including food/virus is too noisy)
+      if (!cell.isPlayer) continue;
+
+      let trail = this.trails.get(id);
+      if (!trail) {
+        trail = [];
+        this.trails.set(id, trail);
+      }
+
+      // Only add a new point if the cell moved enough
+      const last = trail.length > 0 ? trail[trail.length - 1] : null;
+      if (!last || (cell.x - last.x) ** 2 + (cell.y - last.y) ** 2 > TRAIL_MIN_DISTANCE) {
+        trail.push({ x: cell.x, y: cell.y });
+        if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+      } else if (last) {
+        // Always update the newest point to the current cell center
+        last.x = cell.x;
+        last.y = cell.y;
+      }
+    }
+  }
+
+  /** Draw smooth paper.io-style motion trails behind cells. */
+  private drawTrails(ctx: CanvasRenderingContext2D) {
+    for (const [id, trail] of this.trails) {
+      if (trail.length < 3) continue;
+      const cell = this.state.cells.get(id);
+      if (!cell) continue;
+
+      const { r, g, b } = cell.color;
+      const headWidth = cell.size * TRAIL_WIDTH_FACTOR; // full cell radius at the base
+      const n = trail.length;
+
+      // Build left/right edge points for a tapered ribbon.
+      // The newest point (head) sits at the cell center with full cell width.
+      // The oldest point (tip) tapers to zero.
+      const leftEdge: { x: number; y: number }[] = [];
+      const rightEdge: { x: number; y: number }[] = [];
+
+      for (let i = 0; i < n; i++) {
+        // t: 0 = oldest (tip), 1 = newest (head/cell center)
+        const t = i / (n - 1);
+        // Smooth taper using sqrt for a rounder, fatter tail shape
+        const width = headWidth * Math.sqrt(t);
+
+        // Compute tangent direction from neighboring points
+        const prev = trail[Math.max(0, i - 1)];
+        const next = trail[Math.min(n - 1, i + 1)];
+        let tx = next.x - prev.x;
+        let ty = next.y - prev.y;
+        const len = Math.sqrt(tx * tx + ty * ty);
+        if (len < 0.001) {
+          tx = 1;
+          ty = 0;
+        } else {
+          tx /= len;
+          ty /= len;
+        }
+
+        // Perpendicular normal (rotated 90°)
+        const nx = -ty;
+        const ny = tx;
+
+        const pt = trail[i];
+        leftEdge.push({ x: pt.x + nx * width, y: pt.y + ny * width });
+        rightEdge.push({ x: pt.x - nx * width, y: pt.y - ny * width });
+      }
+
+      // Quick viewport bounds check on the bounding box of the trail
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let i = 0; i < n; i++) {
+        const p = trail[i];
+        const w = headWidth;
+        if (p.x - w < minX) minX = p.x - w;
+        if (p.x + w > maxX) maxX = p.x + w;
+        if (p.y - w < minY) minY = p.y - w;
+        if (p.y + w > maxY) maxY = p.y + w;
+      }
+      if (maxX < this.viewLeft || minX > this.viewRight ||
+          maxY < this.viewTop || minY > this.viewBottom) continue;
+
+      // Draw as a single filled shape: left edge forward, right edge backward
+      ctx.save();
+
+      // Create a gradient from tail (transparent) to head (opaque)
+      const tail = trail[0];
+      const head = trail[n - 1];
+      const grad = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+      grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+      grad.addColorStop(0.3, `rgba(${r},${g},${b},${TRAIL_ALPHA * 0.5})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},${TRAIL_ALPHA})`);
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+
+      // Left edge (oldest → newest)
+      ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+      for (let i = 1; i < leftEdge.length; i++) {
+        // Use quadratic curves through midpoints for smoothness
+        if (i < leftEdge.length - 1) {
+          const mx = (leftEdge[i].x + leftEdge[i + 1].x) / 2;
+          const my = (leftEdge[i].y + leftEdge[i + 1].y) / 2;
+          ctx.quadraticCurveTo(leftEdge[i].x, leftEdge[i].y, mx, my);
+        } else {
+          ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+        }
+      }
+
+      // Right edge (newest → oldest, reversed)
+      for (let i = rightEdge.length - 1; i >= 0; i--) {
+        if (i > 0) {
+          const mx = (rightEdge[i].x + rightEdge[i - 1].x) / 2;
+          const my = (rightEdge[i].y + rightEdge[i - 1].y) / 2;
+          ctx.quadraticCurveTo(rightEdge[i].x, rightEdge[i].y, mx, my);
+        } else {
+          ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+        }
+      }
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   /** Start the render loop. Returns a stop function. */
   start(): () => void {
     let running = true;
@@ -210,6 +355,7 @@ export class Renderer {
       this.state.interpolate(dt);
       this.state.updateSpectator(dt);
       this.updateCamera(dt);
+      this.updateTrails();
       this.render();
 
       // Periodic effect state cleanup (every ~120 frames)
@@ -217,6 +363,13 @@ export class Renderer {
       if (this.frameCount % 120 === 0) {
         const allIds = new Set(this.state.cells.keys());
         cleanupEffectState(allIds);
+      }
+
+      // Prune trail data for deleted cells (every ~60 frames ≈ 1s)
+      if (this.frameCount % 60 === 0) {
+        for (const id of this.trails.keys()) {
+          if (!this.state.cells.has(id)) this.trails.delete(id);
+        }
       }
 
       requestAnimationFrame(loop);
@@ -297,23 +450,16 @@ export class Renderer {
     const theme = this.settings.darkMode ? THEMES.dark : THEMES.light;
 
     // Compute viewport bounds (world coords)
-    // Screen viewport = full visible area (used for canvas transform)
-    const halfW = (cw / 2) / this.camZoom;
-    const halfH = (ch / 2) / this.camZoom;
-    // Game viewport = area where cells should be visible, based on player mass
-    // only (ignoring userZoom). When zoomed out, food stays in a fixed-size region
-    // and the edges appear as empty space — no chunk pop-in at the boundaries.
-    // When spectating (no owned cells), use the full screen viewport since the
-    // server already controls what cells are sent.
-    const isSpectating = this.state.myCellIds.size === 0 && this.state.multiCellIds.size === 0;
-    const gameHalfW = isSpectating ? halfW : (cw / 2) / this.gameZoom;
-    const gameHalfH = isSpectating ? halfH : (ch / 2) / this.gameZoom;
-    const cullHalfW = Math.min(halfW, gameHalfW);
-    const cullHalfH = Math.min(halfH, gameHalfH);
-    this.viewLeft = this.camX - cullHalfW;
-    this.viewRight = this.camX + cullHalfW;
-    this.viewTop = this.camY - cullHalfH;
-    this.viewBottom = this.camY + cullHalfH;
+    // The server viewport is based on gameZoom (player mass), not userZoom (scroll wheel).
+    // We cull at 90% of the server viewport so chunk add/remove at the edges stays hidden.
+    // Zooming out with mouse wheel reveals more background but NOT more cells.
+    const serverHalfW = (cw / 2) / this.gameZoom;
+    const serverHalfH = (ch / 2) / this.gameZoom;
+    const cullShrink = 0.9; // 10% inset from server viewport edge
+    this.viewLeft = this.camX - serverHalfW * cullShrink;
+    this.viewRight = this.camX + serverHalfW * cullShrink;
+    this.viewTop = this.camY - serverHalfH * cullShrink;
+    this.viewBottom = this.camY + serverHalfH * cullShrink;
 
     // Clear
     ctx.fillStyle = theme.bg;
@@ -329,9 +475,19 @@ export class Renderer {
 
     if (this.settings.showGrid) this.drawGrid(ctx);
     if (this.settings.showBorder) this.drawBorder(ctx);
+    this.drawTrails(ctx);
     this.drawCells(ctx);
 
+    // Draw BR zone (in world space, before restore)
+    this.drawBattleRoyaleZone(ctx);
+
     ctx.restore();
+
+    // Draw clan edge markers in screen space (after restore)
+    this.drawClanEdgeMarkers(ctx, cw, ch);
+
+    // Draw BR HUD in screen space
+    this.drawBattleRoyaleHUD(ctx, cw, ch);
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D) {
@@ -592,12 +748,34 @@ export class Renderer {
       ctx.strokeStyle = TEXT_STROKE;
       ctx.fillStyle = TEXT_FILL;
 
-      const textY = cell.isPlayer && isOwned && drawSize > 40 ? -fontSize * 0.3 : 0;
+      // Show mass on ALL player cells when showMass is enabled and cell is big enough
+      const showMassHere = this.settings.showMass && drawSize > 40;
+
+      // Draw clan tag above name (smaller, colored text)
+      let clanOffset = 0;
+      if (cell.clan) {
+        const clanFontSize = fontSize * 0.45;
+        ctx.font = `bold ${clanFontSize}px Arial, sans-serif`;
+        ctx.fillStyle = "rgba(100, 200, 255, 0.9)";
+        ctx.strokeStyle = TEXT_STROKE;
+        ctx.lineWidth = Math.max(1, clanFontSize * 0.08);
+        const clanY = showMassHere ? -fontSize * 0.7 : -fontSize * 0.55;
+        ctx.strokeText(`[${cell.clan}]`, 0, clanY);
+        ctx.fillText(`[${cell.clan}]`, 0, clanY);
+        clanOffset = 0; // name position stays the same, clan goes above
+        // Reset styles for name
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.fillStyle = TEXT_FILL;
+        ctx.strokeStyle = TEXT_STROKE;
+        ctx.lineWidth = Math.max(2, fontSize * 0.1);
+      }
+
+      const textY = (showMassHere ? -fontSize * 0.3 : 0) + clanOffset;
       ctx.strokeText(cell.name, 0, textY);
       ctx.fillText(cell.name, 0, textY);
 
-      // Draw mass for own cells (both primary and multi)
-      if (this.settings.showMass && isOwned && drawSize > 40) {
+      // Draw mass for all player cells (own and others)
+      if (showMassHere) {
         const mass = Math.round((cell.size * cell.size) / 100);
         const massFontSize = fontSize * 0.55;
         ctx.font = `bold ${massFontSize}px Arial, sans-serif`;
@@ -751,5 +929,157 @@ export class Renderer {
     ctx.closePath();
     ctx.fillStyle = `rgb(${r},${g},${b})`;
     ctx.fill();
+  }
+
+  /** Draw the Battle Royale danger zone in world space. */
+  private drawBattleRoyaleZone(ctx: CanvasRenderingContext2D) {
+    const br = this.state.battleRoyale;
+    if (!br || br.state !== 2) return; // only draw during active phase
+
+    const { zoneCX, zoneCY, zoneRadius } = br;
+
+    // Draw a huge rect covering the map, then cut out the safe zone circle
+    // This creates a red-tinted danger zone outside the circle
+    ctx.save();
+
+    // Draw danger overlay
+    ctx.beginPath();
+    // Outer rect (bigger than any possible map)
+    ctx.rect(-50000, -50000, 100000, 100000);
+    // Cut out safe zone circle (counter-clockwise = hole)
+    ctx.moveTo(zoneCX + zoneRadius, zoneCY);
+    ctx.arc(zoneCX, zoneCY, zoneRadius, 0, PI2, true);
+    ctx.fillStyle = "rgba(255, 0, 0, 0.12)";
+    ctx.fill("evenodd");
+
+    // Draw zone border ring
+    ctx.beginPath();
+    ctx.arc(zoneCX, zoneCY, zoneRadius, 0, PI2);
+    ctx.strokeStyle = "rgba(255, 50, 50, 0.8)";
+    ctx.lineWidth = 8 / this.camZoom;
+    ctx.stroke();
+
+    // Inner glow ring
+    ctx.beginPath();
+    ctx.arc(zoneCX, zoneCY, zoneRadius, 0, PI2);
+    ctx.strokeStyle = "rgba(255, 100, 100, 0.3)";
+    ctx.lineWidth = 20 / this.camZoom;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /** Draw Battle Royale HUD overlay in screen space. */
+  private drawBattleRoyaleHUD(ctx: CanvasRenderingContext2D, cw: number, _ch: number) {
+    const br = this.state.battleRoyale;
+    if (!br) return;
+
+    ctx.save();
+
+    const centerX = cw / 2;
+
+    if (br.state === 1) {
+      // Countdown
+      ctx.font = "bold 48px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(255, 50, 50, 0.9)";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.lineWidth = 4;
+      const countText = `BATTLE ROYALE in ${br.countdown}`;
+      ctx.strokeText(countText, centerX, 60);
+      ctx.fillText(countText, centerX, 60);
+    } else if (br.state === 2) {
+      // Active - show players alive and time remaining
+      ctx.font = "bold 20px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.lineWidth = 2;
+
+      const minutes = Math.floor(br.timeRemaining / 60);
+      const seconds = br.timeRemaining % 60;
+      const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+      const infoText = `BATTLE ROYALE  |  ${br.playersAlive} alive  |  ${timeStr}`;
+      ctx.strokeText(infoText, centerX, 12);
+      ctx.fillText(infoText, centerX, 12);
+    } else if (br.state === 3) {
+      // Finished - show winner
+      ctx.font = "bold 42px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(255, 215, 0, 0.95)";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.lineWidth = 4;
+
+      const winText = br.winnerName
+        ? `${br.winnerName} WINS!`
+        : "NO SURVIVORS";
+      ctx.strokeText(winText, centerX, 60);
+      ctx.fillText(winText, centerX, 60);
+    }
+
+    ctx.restore();
+  }
+
+  /** Draw floating edge-of-viewport markers for off-screen clan members. */
+  private drawClanEdgeMarkers(ctx: CanvasRenderingContext2D, cw: number, ch: number) {
+    const members = this.state.clanPositions;
+    if (members.length === 0) return;
+
+    const margin = 30; // px from edge
+    const markerSize = 10;
+
+    for (const m of members) {
+      // Convert world pos to screen pos
+      const sx = (m.x - this.camX) * this.camZoom + cw / 2;
+      const sy = (m.y - this.camY) * this.camZoom + ch / 2;
+
+      // Check if already on screen (with some padding)
+      if (sx >= -20 && sx <= cw + 20 && sy >= -20 && sy <= ch + 20) {
+        continue; // on screen, no marker needed
+      }
+
+      // Clamp to edge
+      const cx = Math.max(margin, Math.min(cw - margin, sx));
+      const cy = Math.max(margin, Math.min(ch - margin, sy));
+
+      // Compute direction angle for arrow
+      const dx = sx - cw / 2;
+      const dy = sy - ch / 2;
+      const angle = Math.atan2(dy, dx);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angle);
+
+      // Draw arrow
+      ctx.beginPath();
+      ctx.moveTo(markerSize, 0);
+      ctx.lineTo(-markerSize * 0.5, -markerSize * 0.6);
+      ctx.lineTo(-markerSize * 0.5, markerSize * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(100, 200, 255, 0.8)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Draw name label near the marker
+      ctx.save();
+      ctx.font = "bold 10px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = "rgba(100, 200, 255, 0.85)";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.strokeText(m.name, cx, cy - markerSize - 2);
+      ctx.fillText(m.name, cx, cy - markerSize - 2);
+      ctx.restore();
+    }
   }
 }

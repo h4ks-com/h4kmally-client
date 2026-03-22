@@ -9,6 +9,7 @@ import {
   CLIENT_MULTIBOX_TOGGLE,
   CLIENT_MULTIBOX_SWITCH,
   CLIENT_DIRECTION_LOCK,
+  CLIENT_FREEZE_POSITION,
   CLIENT_CHAT,
   CLIENT_SPECTATE,
   CLIENT_SPECTATOR_CMD,
@@ -23,6 +24,9 @@ import {
   SERVER_LEADERBOARD_FFA,
   SERVER_BORDER,
   SERVER_CHAT,
+  SERVER_CLAN_CHAT,
+  SERVER_CLAN_POSITIONS,
+  SERVER_BATTLE_ROYALE,
   SERVER_SPAWN_RESULT,
   SERVER_PING_REPLY,
 } from "./opcodes";
@@ -81,6 +85,25 @@ export interface ChatMessage {
   color: { r: number; g: number; b: number };
 }
 
+export interface ClanMemberPosition {
+  x: number;
+  y: number;
+  size: number;
+  skin: string;
+  name: string;
+}
+
+export interface BattleRoyaleState {
+  state: number; // 0=inactive, 1=countdown, 2=active, 3=finished
+  playersAlive: number;
+  countdown: number;
+  timeRemaining: number;
+  zoneCX: number;
+  zoneCY: number;
+  zoneRadius: number;
+  winnerName: string;
+}
+
 export type ConnectionState = "disconnected" | "connecting" | "connected";
 
 export interface MultiboxState {
@@ -105,6 +128,9 @@ export interface ConnectionCallbacks {
   onChat?: (msg: ChatMessage) => void;
   onPingReply?: (latency: number) => void;
   onMultiboxState?: (state: MultiboxState) => void;
+  onClanChat?: (msg: ChatMessage) => void;
+  onClanPositions?: (members: ClanMemberPosition[]) => void;
+  onBattleRoyale?: (br: BattleRoyaleState) => void;
 }
 
 // ── Connection ───────────────────────────────────────────────
@@ -267,6 +293,15 @@ export class Connection {
     this.ws.send(buf.buffer);
   }
 
+  /** Freeze or unfreeze cell positions (X key). */
+  sendFreezePosition(freeze: boolean) {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(2);
+    buf[0] = this.shuffle.encode(CLIENT_FREEZE_POSITION);
+    buf[1] = freeze ? 1 : 0;
+    this.ws.send(buf.buffer);
+  }
+
   private sendPing() {
     if (!this.shuffle || !this.ws) return;
     this.pingTimestamp = performance.now();
@@ -346,6 +381,15 @@ export class Connection {
         break;
       case SERVER_CHAT:
         this.parseChatRecv(r);
+        break;
+      case SERVER_CLAN_CHAT:
+        this.parseClanChat(r);
+        break;
+      case SERVER_CLAN_POSITIONS:
+        this.parseClanPositions(r);
+        break;
+      case SERVER_BATTLE_ROYALE:
+        this.parseBattleRoyale(r);
         break;
       case SERVER_SPAWN_RESULT:
         this.cb.onSpawnResult?.(r.readUint8() === 1);
@@ -450,6 +494,45 @@ export class Connection {
     const name = r.readStringUTF8();
     const text = r.readStringUTF8();
     this.cb.onChat?.({ name, text, color: { r: red, g: green, b: blue } });
+  }
+
+  private parseClanChat(r: Reader) {
+    r.readUint8(); // flags (reserved)
+    const red = r.readUint8();
+    const green = r.readUint8();
+    const blue = r.readUint8();
+    const name = r.readStringUTF8();
+    const text = r.readStringUTF8();
+    this.cb.onClanChat?.({ name, text, color: { r: red, g: green, b: blue } });
+  }
+
+  private parseClanPositions(r: Reader) {
+    const count = r.readUint16();
+    const members: ClanMemberPosition[] = [];
+    for (let i = 0; i < count; i++) {
+      const x = r.readFloat32();
+      const y = r.readFloat32();
+      const size = r.readUint16();
+      const skin = r.readStringUTF8();
+      const name = r.readStringUTF8();
+      members.push({ x, y, size, skin, name });
+    }
+    this.cb.onClanPositions?.(members);
+  }
+
+  private parseBattleRoyale(r: Reader) {
+    const state = r.readUint8();
+    const playersAlive = r.readUint16();
+    const countdown = r.readUint8();
+    const timeRemaining = r.readUint16();
+    const zoneCX = r.readFloat32();
+    const zoneCY = r.readFloat32();
+    const zoneRadius = r.readFloat32();
+    const winnerName = r.readStringUTF8();
+    this.cb.onBattleRoyale?.({
+      state, playersAlive, countdown, timeRemaining,
+      zoneCX, zoneCY, zoneRadius, winnerName,
+    });
   }
 
   // ── Internal ─────────────────────────────────────────────

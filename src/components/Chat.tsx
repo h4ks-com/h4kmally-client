@@ -4,19 +4,26 @@ import "./Chat.css";
 
 interface ChatProps {
   messages: ChatEntry[];
+  clanMessages: ChatEntry[];
+  inClan: boolean;
   onSend: (text: string) => void;
+  onClanSend: (text: string) => void;
 }
 
-export function Chat({ messages, onSend }: ChatProps) {
+export function Chat({ messages, clanMessages, inClan, onSend, onClanSend }: ChatProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [tab, setTab] = useState<"global" | "clan">("global");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const activeMessages = tab === "clan" ? clanMessages : messages;
+  const activeSend = tab === "clan" ? onClanSend : onSend;
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && input.trim()) {
-        onSend(input.trim());
+        activeSend(input.trim());
         setInput("");
         setOpen(false);
       }
@@ -26,7 +33,7 @@ export function Chat({ messages, onSend }: ChatProps) {
       }
       e.stopPropagation(); // prevent game controls
     },
-    [input, onSend]
+    [input, activeSend]
   );
 
   // Global Enter to open chat
@@ -50,12 +57,28 @@ export function Chat({ messages, onSend }: ChatProps) {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [messages.length]);
+  }, [activeMessages.length]);
 
   return (
     <div className="chat-container">
+      {inClan && (
+        <div className="chat-tabs">
+          <button
+            className={`chat-tab ${tab === "global" ? "chat-tab-active" : ""}`}
+            onClick={() => setTab("global")}
+          >
+            Global
+          </button>
+          <button
+            className={`chat-tab ${tab === "clan" ? "chat-tab-active" : ""}`}
+            onClick={() => setTab("clan")}
+          >
+            Clan
+          </button>
+        </div>
+      )}
       <div className="chat-messages" ref={listRef}>
-        {messages.map((m, i) => (
+        {activeMessages.map((m, i) => (
           <div key={i} className="chat-msg">
             <span
               className="chat-name"
@@ -74,11 +97,11 @@ export function Chat({ messages, onSend }: ChatProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder={tab === "clan" ? "Clan message..." : "Type a message..."}
           maxLength={200}
         />
       )}
-      {!open && messages.length > 0 && (
+      {!open && activeMessages.length > 0 && (
         <div className="chat-hint">Press Enter to chat</div>
       )}
     </div>

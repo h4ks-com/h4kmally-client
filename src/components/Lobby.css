@@ -645,6 +645,24 @@
   color: #333;
 }
 
+.btn-howtoplay {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  margin-top: 4px;
+  margin-right: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-howtoplay:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
 .lobby-connection-state {
   font-size: 11px;
   color: #999;
@@ -782,6 +800,30 @@
   padding: 10px;
   height: 214px;
   overflow-y: auto;
+}
+
+/* ── Clan button (right panel, under leaderboard) ── */
+.clan-browse-btn {
+  width: calc(100% - 20px);
+  margin: 8px auto 10px;
+  height: 34px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #4a7fff, #3366dd);
+  border: 1px solid #2855cc;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clan-browse-btn:hover {
+  background: linear-gradient(135deg, #5a8fff, #4477ee);
 }
 
 .lb-table {

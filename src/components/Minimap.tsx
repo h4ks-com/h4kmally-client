@@ -9,6 +9,14 @@ interface MinimapProps {
 const MINIMAP_SIZE = 180;
 const GRID_CELL_TARGET = 4000; // world units per grid cell (5×5 at map 20000)
 
+// Skin URL builder - matches the game's skin asset path
+function skinUrl(skin: string): string {
+  if (!skin) return "";
+  // If it's already a URL, use it directly
+  if (skin.startsWith("http")) return skin;
+  return `/skins/${skin}.png`;
+}
+
 export function Minimap({ state }: MinimapProps) {
   const { border } = state;
   const mapW = border.right - border.left;
@@ -74,12 +82,76 @@ export function Minimap({ state }: MinimapProps) {
     }
   }
 
+  // Clan member positions (from server CLAN_POSITIONS packet)
+  const clanDots: { nx: number; ny: number; nr: number; skin: string; name: string }[] = [];
+  for (const m of state.clanPositions) {
+    const nx = ((m.x - border.left) / mapW) * MINIMAP_SIZE;
+    const ny = ((m.y - border.top) / mapH) * MINIMAP_SIZE;
+    const nr = Math.max(2, (m.size / mapW) * MINIMAP_SIZE);
+    clanDots.push({ nx, ny, nr, skin: m.skin, name: m.name });
+  }
+
   return (
     <div className="minimap" style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}>
       <svg width={MINIMAP_SIZE} height={MINIMAP_SIZE}>
+        <defs>
+          {clanDots.map((dot, i) =>
+            dot.skin ? (
+              <clipPath key={`clip-c${i}`} id={`clan-clip-${i}`}>
+                <circle cx={dot.nx} cy={dot.ny} r={Math.max(dot.nr, 4)} />
+              </clipPath>
+            ) : null
+          )}
+        </defs>
         <rect width="100%" height="100%" fill="#111" />
         {gridLines}
         {gridLabels}
+
+        {/* Clan member dots */}
+        {clanDots.map((dot, i) => (
+          <g key={`clan-${i}`}>
+            {dot.skin ? (
+              <>
+                <image
+                  href={skinUrl(dot.skin)}
+                  x={dot.nx - Math.max(dot.nr, 4)}
+                  y={dot.ny - Math.max(dot.nr, 4)}
+                  width={Math.max(dot.nr, 4) * 2}
+                  height={Math.max(dot.nr, 4) * 2}
+                  clipPath={`url(#clan-clip-${i})`}
+                />
+                <circle
+                  cx={dot.nx}
+                  cy={dot.ny}
+                  r={Math.max(dot.nr, 4)}
+                  fill="none"
+                  stroke="rgba(100,200,255,0.7)"
+                  strokeWidth={0.8}
+                />
+              </>
+            ) : (
+              <circle
+                cx={dot.nx}
+                cy={dot.ny}
+                r={Math.max(dot.nr, 3)}
+                fill="rgba(100,200,255,0.6)"
+                stroke="rgba(100,200,255,0.9)"
+                strokeWidth={0.5}
+              />
+            )}
+            {/* Clan member name label */}
+            <text
+              x={dot.nx}
+              y={dot.ny + Math.max(dot.nr, 4) + 7}
+              fill="rgba(100,200,255,0.8)"
+              fontSize={6}
+              fontFamily="Arial, sans-serif"
+              textAnchor="middle"
+            >{dot.name}</text>
+          </g>
+        ))}
+
+        {/* My dots (on top) */}
         {myDots.map((dot, i) => (
           <circle
             key={i}
