@@ -33,6 +33,7 @@ interface ClanDetail {
     description: string;
     clanColor: string;
     isPublic: boolean;
+    minLevel: number;
     maxMembers: number;
   };
 }
