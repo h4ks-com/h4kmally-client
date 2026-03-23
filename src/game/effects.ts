@@ -576,7 +576,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
   }
 
   const n = FLAME_POINTS;
-  const baseHalfW = radius * 1.05; // 5% wider than cell, half-width at base
+  const baseHalfW = radius * 1.25; // 25% wider than cell, half-width at base
   const tipY = -radius * FLAME_HEIGHT;
 
   ctx.save();
@@ -585,7 +585,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
   // Covers the entire cell so the flame ribbon base never reveals gaps
   // when wobbling. Color-matched to the flame's orange/yellow palette.
   {
-    const baseGrad = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.12);
+    const baseGrad = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.35);
     const basePulse = 0.5 + 0.5 * Math.sin(time * 7.46 + state.p1);
     const bAlpha = 0.3 + basePulse * 0.1;
     baseGrad.addColorStop(0, `rgba(255,200,50,${bAlpha})`);
@@ -594,7 +594,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     baseGrad.addColorStop(1, `rgba(255,60,0,0)`);
     ctx.fillStyle = baseGrad;
     ctx.beginPath();
-    ctx.arc(0, 0, radius * 1.12, 0, PI2);
+    ctx.arc(0, 0, radius * 1.35, 0, PI2);
     ctx.fill();
   }
 
