@@ -693,10 +693,12 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const flickerA = 0.5 + 0.5 * Math.sin(time * 5.83 + state.p5);
     const outerAlpha = 0.6 + flickerA * 0.15;
     const grad = ctx.createLinearGradient(0, 0, trail[n - 1].x, tipY);
-    grad.addColorStop(0, `rgba(255,200,50,${outerAlpha})`);
-    grad.addColorStop(0.2, `rgba(255,150,20,${outerAlpha})`);
-    grad.addColorStop(0.5, `rgba(255,80,10,${outerAlpha * 0.85})`);
-    grad.addColorStop(0.8, `rgba(200,40,0,${outerAlpha * 0.5})`);
+    // Base starts transparent so the wide bottom blends into the glow circle
+    grad.addColorStop(0, `rgba(255,200,50,0)`);
+    grad.addColorStop(0.08, `rgba(255,200,50,${outerAlpha * 0.4})`);
+    grad.addColorStop(0.18, `rgba(255,150,20,${outerAlpha})`);
+    grad.addColorStop(0.4, `rgba(255,80,10,${outerAlpha * 0.85})`);
+    grad.addColorStop(0.7, `rgba(200,40,0,${outerAlpha * 0.5})`);
     grad.addColorStop(1, `rgba(150,20,0,0)`);
     drawRibbon(leftEdge, rightEdge, grad);
   }
@@ -719,9 +721,11 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       const innerAlpha = 0.55 + flickerB * 0.15;
       const tipPt = innerTrail[innerN - 1];
       const grad = ctx.createLinearGradient(0, 0, tipPt.x, tipPt.y);
-      grad.addColorStop(0, `rgba(200,225,255,${innerAlpha})`);
-      grad.addColorStop(0.3, `rgba(120,170,255,${innerAlpha * 0.9})`);
-      grad.addColorStop(0.65, `rgba(60,100,220,${innerAlpha * 0.6})`);
+      // Base starts transparent to blend into the glow circle
+      grad.addColorStop(0, `rgba(200,225,255,0)`);
+      grad.addColorStop(0.1, `rgba(200,225,255,${innerAlpha * 0.5})`);
+      grad.addColorStop(0.25, `rgba(120,170,255,${innerAlpha * 0.9})`);
+      grad.addColorStop(0.55, `rgba(60,100,220,${innerAlpha * 0.6})`);
       grad.addColorStop(1, `rgba(40,60,180,0)`);
       drawRibbon(leftEdge, rightEdge, grad);
     }
