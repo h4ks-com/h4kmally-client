@@ -602,15 +602,17 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     ctx.fill();
   }
 
-  // ── Build virtual trail points going upward from cell center ──
-  // Each point is (x, y) where y goes from 0 (base) to tipY (tip).
-  // x wobbles based on multiple sine waves to simulate flickering.
+  // ── Build virtual trail points going upward ──
+  // Starts at y = -radius*0.4 (inside the solid circle glow), NOT at cell
+  // center — this buries the wide ribbon base under the opaque circle so
+  // no geometric edge is visible.
   const trail: { x: number; y: number }[] = [];
+  const startY = -radius * 0.4; // inside the circle, hidden from view
 
   for (let i = 0; i < n; i++) {
-    const t = i / (n - 1); // 0 = base (cell center), 1 = tip
+    const t = i / (n - 1); // 0 = base, 1 = tip
 
-    const y = t * tipY; // tipY is negative (upward)
+    const y = startY + t * (tipY - startY); // lerp from startY to tipY
 
     // Wobble accumulates toward the tip — base is stable, tip dances wildly
     // Irrational frequency ratios (√2, √3, φ, π based) so the pattern
