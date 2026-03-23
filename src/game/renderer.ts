@@ -477,6 +477,7 @@ export class Renderer {
     if (this.settings.showBorder) this.drawBorder(ctx);
     if (this.settings.showTrails) this.drawTrails(ctx);
     this.drawCells(ctx);
+    if (this.settings.showCursorLines) this.drawCursorLines(ctx);
 
     // Draw BR zone (in world space, before restore)
     this.drawBattleRoyaleZone(ctx);
@@ -615,15 +616,53 @@ export class Renderer {
 
   private sortedCells: GameCell[] = [];
 
+  /** Draw lines from the cursor to each of the player's cells. */
+  private drawCursorLines(ctx: CanvasRenderingContext2D) {
+    const mx = this.mouseWorldX;
+    const my = this.mouseWorldY;
+    const ids = this.state.myCellIds;
+    if (ids.size === 0) return;
+
+    ctx.save();
+    ctx.lineWidth = 2 / this.camZoom;
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.setLineDash([8 / this.camZoom, 6 / this.camZoom]);
+
+    for (const id of ids) {
+      const cell = this.state.cells.get(id);
+      if (!cell) continue;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(cell.x, cell.y);
+      ctx.stroke();
+    }
+
+    // Also draw for multibox cells if present
+    for (const id of this.state.multiCellIds) {
+      const cell = this.state.cells.get(id);
+      if (!cell) continue;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(cell.x, cell.y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   private drawCells(ctx: CanvasRenderingContext2D) {
     // Sort cells by size (smallest first → drawn first → below larger cells)
     const sorted = this.sortedCells;
     sorted.length = 0;
     for (const cell of this.state.cells.values()) {
-      // Viewport culling: skip cells entirely outside the visible area
-      const margin = cell.size;
-      if (cell.x + margin < this.viewLeft || cell.x - margin > this.viewRight ||
-          cell.y + margin < this.viewTop || cell.y - margin > this.viewBottom) continue;
+      // Always draw our own cells regardless of viewport
+      const isOwned = this.state.myCellIds.has(cell.id) || this.state.multiCellIds.has(cell.id);
+      if (!isOwned) {
+        // Viewport culling: skip cells entirely outside the visible area
+        const margin = cell.size;
+        if (cell.x + margin < this.viewLeft || cell.x - margin > this.viewRight ||
+            cell.y + margin < this.viewTop || cell.y - margin > this.viewBottom) continue;
+      }
       sorted.push(cell);
     }
     sorted.sort((a, b) => a.size - b.size);
@@ -909,12 +948,15 @@ export class Renderer {
     return cell.name === top.name;
   }
 
-  /** Draw a golden crown hovering above a cell. */
+  /** Draw a golden crown hovering above a cell (at 1 o'clock position). */
   private drawCrown(ctx: CanvasRenderingContext2D, cellSize: number) {
     const crownW = cellSize * 0.55;
     const crownH = crownW * 0.45;
-    const cx = 0;
-    const cy = -cellSize - crownH * 0.6; // hover above the cell
+    // 1 o'clock = 30° from top = -60° from horizontal
+    const angle = -Math.PI / 3; // -60°
+    const dist = cellSize + crownH * 0.6;
+    const cx = Math.cos(angle) * dist;
+    const cy = Math.sin(angle) * dist;
 
     const left = cx - crownW / 2;
     const right = cx + crownW / 2;

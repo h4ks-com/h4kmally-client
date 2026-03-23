@@ -52,12 +52,18 @@ export function Chat({ messages, clanMessages, inClan, onSend, onClanSend }: Cha
     if (open && inputRef.current) inputRef.current.focus();
   }, [open]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (deferred to after layout for multiline messages)
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [activeMessages.length]);
+    const el = listRef.current;
+    if (!el) return;
+    // Double rAF ensures the browser has completed layout for wrapped text
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeMessages]);
 
   return (
     <div className="chat-container">

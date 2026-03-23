@@ -1,0 +1,20 @@
+/* Hide the real cursor when in canvas-only mode */
+html.custom-cursor-canvas-active,
+html.custom-cursor-canvas-active * {
+  cursor: none !important;
+}
+
+/* Propagate real custom cursor to all children */
+html.custom-cursor-real * {
+  cursor: inherit !important;
+}
+
+/* The overlay canvas for the custom cursor */
+.custom-cursor-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 100000;
+  will-change: transform;
+}

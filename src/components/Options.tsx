@@ -92,6 +92,15 @@ export function Options({ settings, onChange, onClose, onOpenKeybinds }: Options
             <span className="toggle-slider" />
             #1 Crown
           </label>
+          <label className="options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.showCursorLines}
+              onChange={() => toggle("showCursorLines")}
+            />
+            <span className="toggle-slider" />
+            Cursor Lines
+          </label>
         </div>
 
         <div className="options-section">

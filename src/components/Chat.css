@@ -27,6 +27,8 @@
 
 .chat-text {
   color: #eee;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .chat-input {

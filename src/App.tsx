@@ -19,6 +19,7 @@ import { Shop } from "./components/Shop";
 import { DailyGift } from "./components/DailyGift";
 import { MultiboxIndicator } from "./components/MultiboxIndicator";
 import { ClanPanel } from "./components/ClanPanel";
+import { CustomCursor } from "./components/CustomCursor";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -649,6 +650,7 @@ function GameApp() {
   return (
     <div className="app">
       <canvas ref={canvasRef} className="game-canvas" />
+      <CustomCursor cursorId={settings.cursor} cursorMode={settings.cursorMode} />
 
       {/* Settings gear button — only visible during gameplay */}
       {alive && (
@@ -710,6 +712,8 @@ function GameApp() {
           xpNeeded={xpNeeded}
           onOpenOptions={() => setShowOptions(true)}
           onOpenHowToPlay={() => setShowHowToPlay(true)}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
           multiboxEnabled={multiboxWanted}
           onMultiboxToggle={handleMultiboxToggle}
           pendingTokens={pendingTokens}

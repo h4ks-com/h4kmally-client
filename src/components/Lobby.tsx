@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ConnectionState, LeaderboardEntry } from "../protocol";
 import type { UserProfile } from "../App";
+import type { Settings } from "../game/settings";
 import { TokenReveal } from "./TokenReveal";
 import { EffectTokenReveal } from "./EffectTokenReveal";
 import { setSkinFiles, getSkinFile } from "../skinFileMap";
+import { CURSOR_LIST, renderCursorToDataURL } from "../game/cursors";
 import "./Lobby.css";
 
 interface SkinAccessEntry {
@@ -59,6 +61,8 @@ interface LobbyProps {
   xpNeeded: number;
   onOpenOptions: () => void;
   onOpenHowToPlay: () => void;
+  settings: Settings;
+  onSettingsChange: (s: Settings) => void;
   multiboxEnabled: boolean;
   onMultiboxToggle: () => void;
   pendingTokens: Array<{skinName: string}>;
@@ -93,6 +97,8 @@ export function Lobby({
   xpNeeded,
   onOpenOptions,
   onOpenHowToPlay,
+  settings,
+  onSettingsChange,
   multiboxEnabled,
   onMultiboxToggle,
   pendingTokens,
@@ -126,6 +132,8 @@ export function Lobby({
   const [topUsers, setTopUsers] = useState<TopUserEntry[]>([]);
   const [skinCategoryTab, setSkinCategoryTab] = useState<string>("all");
   const [effectCategoryTab, setEffectCategoryTab] = useState<string>("all");
+  const [showCursorPicker, setShowCursorPicker] = useState(false);
+  const cursorPreviewCache = useRef<Map<string, string>>(new Map());
 
   // Load skins with access info (on mount and whenever picker is opened)
   useEffect(() => {
@@ -334,6 +342,14 @@ export function Lobby({
                 >
                   <span className="effect-icon">✦</span>
                   {effect && <span className="effect-active-dot" />}
+                </div>
+                <div
+                  className={`cursor-select-icon ${settings.cursor ? "active" : ""}`}
+                  onClick={() => setShowCursorPicker(!showCursorPicker)}
+                  title={settings.cursor ? CURSOR_LIST.find(c => c.id === settings.cursor)?.label ?? settings.cursor : "Select cursor"}
+                >
+                  <span className="cursor-icon">⊕</span>
+                  {settings.cursor && <span className="cursor-active-dot" />}
                 </div>
                 <div className="form-group-fields">
                   <input
@@ -613,6 +629,87 @@ export function Lobby({
                 onClick={() => { setEffect(""); setShowEffectPicker(false); }}
               >
                 Clear Effect
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cursor Picker ── */}
+      {showCursorPicker && (
+        <div className="cursor-picker-overlay" onClick={() => setShowCursorPicker(false)}>
+          <div className="cursor-picker-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="cursor-picker-header">
+              <h2>Cursors</h2>
+              <button
+                className="cursor-picker-close"
+                onClick={() => setShowCursorPicker(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="cursor-picker-grid">
+              {/* None option */}
+              <div
+                className={`cursor-picker-card ${settings.cursor === "" ? "active" : ""}`}
+                onClick={() => { onSettingsChange({ ...settings, cursor: "" }); setShowCursorPicker(false); }}
+                title="Default cursor"
+              >
+                <div className="cursor-card-icon">✕</div>
+                <div className="cursor-card-label">Default</div>
+              </div>
+              {CURSOR_LIST.map((cur) => {
+                // Lazy-render preview
+                let preview = cursorPreviewCache.current.get(cur.id);
+                if (!preview) {
+                  preview = renderCursorToDataURL(cur.id, 48) ?? "";
+                  cursorPreviewCache.current.set(cur.id, preview);
+                }
+                return (
+                  <div
+                    key={cur.id}
+                    className={`cursor-picker-card ${settings.cursor === cur.id ? "active" : ""}`}
+                    onClick={() => { onSettingsChange({ ...settings, cursor: cur.id }); setShowCursorPicker(false); }}
+                    title={cur.description}
+                  >
+                    <div className="cursor-card-preview">
+                      {preview && <img src={preview} alt={cur.label} width={36} height={36} />}
+                    </div>
+                    <div className="cursor-card-label">{cur.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {settings.cursor && (
+              <div className="cursor-mode-row">
+                <label className="cursor-mode-label">Mode:</label>
+                <select
+                  className="cursor-mode-select"
+                  value={settings.cursorMode}
+                  onChange={(e) => onSettingsChange({ ...settings, cursorMode: e.target.value as "real" | "canvas" | "both" })}
+                >
+                  <option value="real">Real (fast)</option>
+                  <option value="canvas">Canvas (for recording)</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+            )}
+            <label className="cursor-lines-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showCursorLines}
+                onChange={() => onSettingsChange({ ...settings, showCursorLines: !settings.showCursorLines })}
+              />
+              <span className="toggle-slider" />
+              Cursor Lines
+            </label>
+            {settings.cursor && (
+              <button
+                className="cursor-picker-clear"
+                onClick={() => { onSettingsChange({ ...settings, cursor: "" }); setShowCursorPicker(false); }}
+              >
+                Clear Cursor
               </button>
             )}
           </div>

@@ -10,9 +10,14 @@ export interface Settings {
   showEffects: boolean;
   showTrails: boolean;
   showCrowns: boolean;
+  showCursorLines: boolean;
 
   // Theme
   darkMode: boolean;
+
+  // Cursor
+  cursor: string;
+  cursorMode: "real" | "canvas" | "both";
 
   // Play
   autoRespawn: boolean;
@@ -27,6 +32,9 @@ const DEFAULTS: Settings = {
   showEffects: true,
   showTrails: true,
   showCrowns: true,
+  showCursorLines: false,
+  cursor: "",
+  cursorMode: "real",
   darkMode: true,
   autoRespawn: false,
 };
