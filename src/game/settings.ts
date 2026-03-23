@@ -6,6 +6,11 @@ export interface Settings {
   showBorder: boolean;
   showGrid: boolean;
 
+  // Effects
+  showEffects: boolean;
+  showTrails: boolean;
+  showCrowns: boolean;
+
   // Theme
   darkMode: boolean;
 
@@ -19,6 +24,9 @@ const DEFAULTS: Settings = {
   showMass: true,
   showBorder: true,
   showGrid: false,
+  showEffects: true,
+  showTrails: true,
+  showCrowns: true,
   darkMode: true,
   autoRespawn: false,
 };

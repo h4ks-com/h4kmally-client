@@ -555,12 +555,17 @@ const FLAME_HEIGHT = 1.6;     // flame tip height in radii above cell center
 interface FlameRibbonState {
   // Phase offsets for desync between cells
   p1: number; p2: number; p3: number; p4: number; p5: number;
+  // Velocity tracking for wind effect
+  prevX: number; prevY: number; prevTime: number;
+  windX: number; windY: number; // smoothed velocity (world units/sec)
 }
 const flameStates = new Map<string, FlameRibbonState>();
 
 registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  const worldX = (ctx as unknown as { _effectCellX?: number })._effectCellX ?? 0;
+  const worldY = (ctx as unknown as { _effectCellY?: number })._effectCellY ?? 0;
 
   let state = flameStates.get(cellKey);
   if (!state) {
@@ -570,12 +575,34 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       p3: Math.random() * PI2,
       p4: Math.random() * PI2,
       p5: Math.random() * PI2,
+      prevX: worldX, prevY: worldY, prevTime: time,
+      windX: 0, windY: 0,
     };
     flameStates.set(cellKey, state);
   }
 
+  // Compute smoothed velocity for wind effect
+  const dt = time - state.prevTime;
+  if (dt > 0.001 && dt < 0.5) {
+    const rawVx = (worldX - state.prevX) / dt;
+    const rawVy = (worldY - state.prevY) / dt;
+    // Exponential smoothing — lower = smoother (0.08 ≈ gentle lag)
+    const smooth = 1 - Math.exp(-4.0 * dt);
+    state.windX += (rawVx - state.windX) * smooth;
+    state.windY += (rawVy - state.windY) * smooth;
+  }
+  state.prevX = worldX;
+  state.prevY = worldY;
+  state.prevTime = time;
+
+  // Wind offset: opposite of movement direction, clamped, scaled to radius
+  // Negative sign = flame blows opposite to travel direction
+  const windSpeed = Math.sqrt(state.windX * state.windX + state.windY * state.windY);
+  const windScale = Math.min(windSpeed / 300, 1.0); // normalize: 300 units/sec = full effect
+  const windOffX = windSpeed > 1 ? (-state.windX / windSpeed) * windScale * radius * 0.35 : 0;
+
   const n = FLAME_POINTS;
-  const baseHalfW = radius * 1.25; // 25% wider than cell, half-width at base
+  const baseHalfW = radius * 1.05; // slightly wider than cell
   const tipY = -radius * FLAME_HEIGHT;
 
   ctx.save();
@@ -598,7 +625,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     // Base sway — the whole flame leans left/right (irrational freq)
     const baseSway = Math.sin(time * 3.82 + state.p4) * radius * 0.04 * t;
 
-    const x = w1 + w2 + w3 + w4 + baseSway;
+    const x = w1 + w2 + w3 + w4 + baseSway + windOffX * t;
     trail.push({ x, y });
   }
 
@@ -629,23 +656,24 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     return { leftEdge, rightEdge };
   }
 
-  // Draw ribbon with a convex semicircle base instead of a straight line.
-  // The arc bulges downward from the left base point to the right base point,
-  // creating a smooth rounded bottom — one unified flame shape, no seams.
+  // Draw ribbon with a convex semicircle base that hugs the cell's bottom.
+  // Uses ctx.arc() for a mathematically perfect semi-circle.
+  // Note: due to normals, leftEdge[0] is on the +x side, rightEdge[0] on -x.
   function drawRibbonWithArcBase(
     leftEdge: { x: number; y: number }[],
     rightEdge: { x: number; y: number }[],
     fill: CanvasGradient | string,
+    arcRadius: number,
   ) {
-    const lBase = leftEdge[0];
-    const rBase = rightEdge[0];
+    const lBase = leftEdge[0];  // +x side (right on screen)
+    const rBase = rightEdge[0]; // -x side (left on screen)
 
     ctx.beginPath();
 
-    // Start at left base
+    // Start at lBase (+x side)
     ctx.moveTo(lBase.x, lBase.y);
 
-    // Left edge upward (base → tip)
+    // Left edge upward (base → tip) — "left" array but actually right side
     for (let i = 1; i < leftEdge.length; i++) {
       if (i < leftEdge.length - 1) {
         const mx = (leftEdge[i].x + leftEdge[i + 1].x) / 2;
@@ -656,7 +684,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       }
     }
 
-    // Right edge downward (tip → base)
+    // Right edge downward (tip → base) — ends at rBase (-x side)
     for (let i = rightEdge.length - 1; i >= 0; i--) {
       if (i > 0) {
         const mx = (rightEdge[i].x + rightEdge[i - 1].x) / 2;
@@ -667,26 +695,9 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       }
     }
 
-    // Proper semicircle arc from right base → left base (bulging downward)
-    // Two cubic Béziers approximate a true half-circle (magic number 0.5523)
-    const midX = (lBase.x + rBase.x) / 2;
-    const midY = (lBase.y + rBase.y) / 2;
-    const halfW = (rBase.x - lBase.x) / 2;
-    const arcR = halfW; // semicircle radius = half the base width
-    const k = 0.5523 * arcR; // cubic bezier handle length for circular arc
-
-    // Right base → bottom center
-    ctx.bezierCurveTo(
-      rBase.x, rBase.y + k,
-      midX + k, midY + arcR,
-      midX, midY + arcR,
-    );
-    // Bottom center → left base
-    ctx.bezierCurveTo(
-      midX - k, midY + arcR,
-      lBase.x, lBase.y + k,
-      lBase.x, lBase.y,
-    );
+    // Semicircle arc from rBase (-x) through bottom (+y) to lBase (+x)
+    // counterclockwise=true: goes from π → π/2 → 0 (left → bottom → right)
+    ctx.arc(0, 0, arcRadius, Math.PI, 0, true);
 
     ctx.fillStyle = fill;
     ctx.fill();
@@ -703,7 +714,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     grad.addColorStop(0.4, `rgba(255,80,10,${outerAlpha * 0.85})`);
     grad.addColorStop(0.7, `rgba(200,40,0,${outerAlpha * 0.5})`);
     grad.addColorStop(1, `rgba(150,20,0,0)`);
-    drawRibbonWithArcBase(leftEdge, rightEdge, grad);
+    drawRibbonWithArcBase(leftEdge, rightEdge, grad, baseHalfW);
   }
 
   // ── Inner flame ribbon (blue core) — narrower, shorter ──
@@ -716,16 +727,17 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     }
     const innerN = innerTrail.length;
     if (innerN >= 3) {
-      const { leftEdge, rightEdge } = buildRibbon(innerTrail, baseHalfW * 0.5);
+      const innerHalfW = baseHalfW * 0.5;
+      const { leftEdge, rightEdge } = buildRibbon(innerTrail, innerHalfW);
       const flickerB = 0.5 + 0.5 * Math.sin(time * 16.74 + state.p3);
-      const innerAlpha = 0.55 + flickerB * 0.15;
+      const innerAlpha = 0.75 + flickerB * 0.2;
       const tipPt = innerTrail[innerN - 1];
       const grad = ctx.createLinearGradient(0, innerTrail[0].y, tipPt.x, tipPt.y);
-      grad.addColorStop(0, `rgba(200,225,255,${innerAlpha})`);
-      grad.addColorStop(0.2, `rgba(120,170,255,${innerAlpha * 0.9})`);
-      grad.addColorStop(0.55, `rgba(60,100,220,${innerAlpha * 0.6})`);
-      grad.addColorStop(1, `rgba(40,60,180,0)`);
-      drawRibbonWithArcBase(leftEdge, rightEdge, grad);
+      grad.addColorStop(0, `rgba(80,140,255,${innerAlpha})`);
+      grad.addColorStop(0.2, `rgba(40,100,255,${innerAlpha * 0.95})`);
+      grad.addColorStop(0.55, `rgba(20,60,220,${innerAlpha * 0.7})`);
+      grad.addColorStop(1, `rgba(10,30,180,0)`);
+      drawRibbonWithArcBase(leftEdge, rightEdge, grad, innerHalfW);
     }
   }
 
@@ -734,9 +746,9 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const corePulse = 0.5 + 0.5 * Math.sin(time * 10.0 + state.p2);
     const coreR = radius * 0.18;
     const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
-    coreGrad.addColorStop(0, `rgba(255,255,245,${0.4 + corePulse * 0.15})`);
-    coreGrad.addColorStop(0.5, `rgba(200,220,255,${0.15 + corePulse * 0.05})`);
-    coreGrad.addColorStop(1, "rgba(200,220,255,0)");
+    coreGrad.addColorStop(0, `rgba(140,180,255,${0.5 + corePulse * 0.15})`);
+    coreGrad.addColorStop(0.5, `rgba(60,100,255,${0.25 + corePulse * 0.1})`);
+    coreGrad.addColorStop(1, "rgba(40,80,220,0)");
     ctx.fillStyle = coreGrad;
     ctx.beginPath();
     ctx.arc(0, 0, coreR, 0, PI2);
@@ -897,6 +909,14 @@ registerEffect("blackhole", "Black Hole", "Warps space around your cell like a g
   }
 
   ctx.restore();
+}, "premium");
+
+// ── Trail ───────────────────────────────────────────────────
+// Motion trail ribbon — rendered by the main renderer's trail system, not here.
+// This registration just makes it appear in the effect picker.
+
+registerEffect("trail", "Trail", "Smooth ribbon trail following your cell", () => {
+  // No-op: trail rendering is handled by the renderer's drawTrails() system
 }, "premium");
 
 // ── Cleanup ────────────────────────────────────────────────

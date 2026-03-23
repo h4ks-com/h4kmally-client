@@ -218,8 +218,8 @@ export class Renderer {
 
     // Record current position for each cell (only player cells and viruses > certain size)
     for (const [id, cell] of activeCells) {
-      // Only trail player cells (including food/virus is too noisy)
-      if (!cell.isPlayer) continue;
+      // Only trail player cells that have the "trail" effect selected
+      if (!cell.isPlayer || cell.effect !== "trail") continue;
 
       let trail = this.trails.get(id);
       if (!trail) {
@@ -475,7 +475,7 @@ export class Renderer {
 
     if (this.settings.showGrid) this.drawGrid(ctx);
     if (this.settings.showBorder) this.drawBorder(ctx);
-    this.drawTrails(ctx);
+    if (this.settings.showTrails) this.drawTrails(ctx);
     this.drawCells(ctx);
 
     // Draw BR zone (in world space, before restore)
@@ -729,11 +729,13 @@ export class Renderer {
     }
 
     // Draw border effect (if any)
-    if (cell.isPlayer && cell.effect) {
+    if (cell.isPlayer && cell.effect && this.settings.showEffects) {
       const effectFn = getEffect(cell.effect);
       if (effectFn) {
-        // Pass cell ID to effect for per-cell state tracking
+        // Pass cell ID and world position to effect for per-cell state tracking
         (ctx as unknown as { _effectCellId?: number })._effectCellId = cell.id;
+        (ctx as unknown as { _effectCellX?: number })._effectCellX = cell.x;
+        (ctx as unknown as { _effectCellY?: number })._effectCellY = cell.y;
         effectFn(ctx, drawSize, r, g, b, performance.now() / 1000, drawSize * this.camZoom);
       }
     }
@@ -759,7 +761,7 @@ export class Renderer {
         ctx.fillStyle = "rgba(100, 200, 255, 0.9)";
         ctx.strokeStyle = TEXT_STROKE;
         ctx.lineWidth = Math.max(1, clanFontSize * 0.08);
-        const clanY = showMassHere ? -fontSize * 0.7 : -fontSize * 0.55;
+        const clanY = showMassHere ? -fontSize * 1.05 : -fontSize * 0.9;
         ctx.strokeText(`[${cell.clan}]`, 0, clanY);
         ctx.fillText(`[${cell.clan}]`, 0, clanY);
         clanOffset = 0; // name position stays the same, clan goes above
@@ -783,6 +785,11 @@ export class Renderer {
         ctx.strokeText(String(mass), 0, fontSize * 0.45);
         ctx.fillText(String(mass), 0, fontSize * 0.45);
       }
+    }
+
+    // Draw crown on #1 leaderboard player's cells
+    if (this.settings.showCrowns && cell.isPlayer && cell.name && drawSize > 30 && this.isTopPlayerCell(cell)) {
+      this.drawCrown(ctx, drawSize);
     }
 
     ctx.restore();
@@ -888,6 +895,81 @@ export class Renderer {
     ctx.strokeStyle = `rgb(${Math.max(0, r - 40)},${Math.max(0, g - 40)},${Math.max(0, b - 40)})`;
     ctx.lineWidth = lineW;
     ctx.stroke();
+  }
+
+  /** Check if a cell belongs to the #1 leaderboard player. */
+  private isTopPlayerCell(cell: GameCell): boolean {
+    const lb = this.state.leaderboard;
+    if (lb.length === 0) return false;
+    // The entry at rank 1 (or smallest rank) is the top player
+    let top = lb[0];
+    for (let i = 1; i < lb.length; i++) {
+      if (lb[i].rank < top.rank) top = lb[i];
+    }
+    return cell.name === top.name;
+  }
+
+  /** Draw a golden crown hovering above a cell. */
+  private drawCrown(ctx: CanvasRenderingContext2D, cellSize: number) {
+    const crownW = cellSize * 0.55;
+    const crownH = crownW * 0.45;
+    const cx = 0;
+    const cy = -cellSize - crownH * 0.6; // hover above the cell
+
+    const left = cx - crownW / 2;
+    const right = cx + crownW / 2;
+    const top = cy - crownH / 2;
+    const bot = cy + crownH / 2;
+
+    ctx.save();
+
+    // Crown body
+    ctx.beginPath();
+    // Base: bottom-left to bottom-right
+    ctx.moveTo(left, bot);
+    // Left spike up
+    ctx.lineTo(left, top);
+    // Valley between left and center spike
+    ctx.lineTo(left + crownW * 0.25, top + crownH * 0.45);
+    // Center spike up (tallest)
+    ctx.lineTo(cx, top - crownH * 0.15);
+    // Valley between center and right spike
+    ctx.lineTo(right - crownW * 0.25, top + crownH * 0.45);
+    // Right spike up
+    ctx.lineTo(right, top);
+    // Right side down
+    ctx.lineTo(right, bot);
+    ctx.closePath();
+
+    // Gold fill with subtle gradient
+    const grad = ctx.createLinearGradient(cx, top - crownH * 0.15, cx, bot);
+    grad.addColorStop(0, "#ffe84c");
+    grad.addColorStop(0.5, "#ffd700");
+    grad.addColorStop(1, "#daa520");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Dark outline
+    ctx.strokeStyle = "#8B6914";
+    ctx.lineWidth = Math.max(1.5, cellSize * 0.012);
+    ctx.stroke();
+
+    // Jewels (3 small circles on the crown band)
+    const jewelY = bot - crownH * 0.25;
+    const jewelR = Math.max(1.5, crownW * 0.055);
+    const jewelColors = ["#ff3333", "#33bbff", "#33ff66"];
+    const jewelXs = [cx - crownW * 0.22, cx, cx + crownW * 0.22];
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(jewelXs[i], jewelY, jewelR, 0, PI2);
+      ctx.fillStyle = jewelColors[i];
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.lineWidth = Math.max(0.5, jewelR * 0.3);
+      ctx.stroke();
+    }
+
+    ctx.restore();
   }
 
   /** Draw a virus with cute rounded spikes. */

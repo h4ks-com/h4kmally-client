@@ -64,6 +64,37 @@ export function Options({ settings, onChange, onClose, onOpenKeybinds }: Options
         </div>
 
         <div className="options-section">
+          <h3>Effects</h3>
+          <label className="options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.showEffects}
+              onChange={() => toggle("showEffects")}
+            />
+            <span className="toggle-slider" />
+            Cell Effects
+          </label>
+          <label className="options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.showTrails}
+              onChange={() => toggle("showTrails")}
+            />
+            <span className="toggle-slider" />
+            Trails
+          </label>
+          <label className="options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.showCrowns}
+              onChange={() => toggle("showCrowns")}
+            />
+            <span className="toggle-slider" />
+            #1 Crown
+          </label>
+        </div>
+
+        <div className="options-section">
           <h3>Play</h3>
           <label className="options-toggle">
             <input
