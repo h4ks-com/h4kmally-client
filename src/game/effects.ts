@@ -667,13 +667,26 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       }
     }
 
-    // Convex semicircle arc from right base → left base (bulging downward)
-    // Control point is below the midpoint of the base line
+    // Proper semicircle arc from right base → left base (bulging downward)
+    // Two cubic Béziers approximate a true half-circle (magic number 0.5523)
     const midX = (lBase.x + rBase.x) / 2;
     const midY = (lBase.y + rBase.y) / 2;
-    const baseWidth = Math.abs(rBase.x - lBase.x);
-    const bulge = baseWidth * 0.45; // how far the arc bulges down
-    ctx.quadraticCurveTo(midX, midY + bulge, lBase.x, lBase.y);
+    const halfW = (rBase.x - lBase.x) / 2;
+    const arcR = halfW; // semicircle radius = half the base width
+    const k = 0.5523 * arcR; // cubic bezier handle length for circular arc
+
+    // Right base → bottom center
+    ctx.bezierCurveTo(
+      rBase.x, rBase.y + k,
+      midX + k, midY + arcR,
+      midX, midY + arcR,
+    );
+    // Bottom center → left base
+    ctx.bezierCurveTo(
+      midX - k, midY + arcR,
+      lBase.x, lBase.y + k,
+      lBase.x, lBase.y,
+    );
 
     ctx.fillStyle = fill;
     ctx.fill();
