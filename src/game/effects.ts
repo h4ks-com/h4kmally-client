@@ -611,13 +611,13 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     // Wobble accumulates toward the tip — base is stable, tip dances wildly
     // Irrational frequency ratios (√2, √3, φ, π based) so the pattern
     // never visibly repeats — avoids the "wobble-wobble-rest" cycle
-    const wobbleAmt = t * t * radius * 0.35;
+    const wobbleAmt = t * t * radius * 0.18;
     const w1 = Math.sin(time * 14.62 + state.p1 + t * 2.73) * wobbleAmt;
     const w2 = Math.sin(time * 23.94 + state.p2 + t * 4.19) * wobbleAmt * 0.5;
     const w3 = Math.sin(time * 9.34  + state.p3 + t * 1.83) * wobbleAmt * 0.3;
     const w4 = Math.sin(time * 35.06 + state.p5 + t * 6.41) * wobbleAmt * 0.15;
     // Base sway — the whole flame leans left/right (irrational freq)
-    const baseSway = Math.sin(time * 3.82 + state.p4) * radius * 0.08 * t;
+    const baseSway = Math.sin(time * 3.82 + state.p4) * radius * 0.04 * t;
 
     const x = w1 + w2 + w3 + w4 + baseSway;
     trail.push({ x, y });
