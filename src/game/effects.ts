@@ -697,9 +697,9 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const flickerA = 0.5 + 0.5 * Math.sin(time * 11.66 + state.p5);
     const outerAlpha = 0.6 + flickerA * 0.15;
     const grad = ctx.createLinearGradient(0, 0, trail[n - 1].x, tipY);
-    // Base fully transparent — fades in from the solid circle underneath
+    // Base fade-in uses fixed alpha (no flicker) so it never pops in/out
     grad.addColorStop(0, `rgba(255,200,50,0)`);
-    grad.addColorStop(0.1, `rgba(255,200,50,${outerAlpha * 0.3})`);
+    grad.addColorStop(0.1, `rgba(255,200,50,0.18)`);
     grad.addColorStop(0.22, `rgba(255,150,20,${outerAlpha})`);
     grad.addColorStop(0.4, `rgba(255,80,10,${outerAlpha * 0.85})`);
     grad.addColorStop(0.7, `rgba(200,40,0,${outerAlpha * 0.5})`);
@@ -725,9 +725,9 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       const innerAlpha = 0.55 + flickerB * 0.15;
       const tipPt = innerTrail[innerN - 1];
       const grad = ctx.createLinearGradient(0, 0, tipPt.x, tipPt.y);
-      // Base fully transparent — fades in from the solid circle underneath
+      // Base fade-in uses fixed alpha (no flicker) so it never pops in/out
       grad.addColorStop(0, `rgba(200,225,255,0)`);
-      grad.addColorStop(0.12, `rgba(200,225,255,${innerAlpha * 0.4})`);
+      grad.addColorStop(0.12, `rgba(200,225,255,0.22)`);
       grad.addColorStop(0.28, `rgba(120,170,255,${innerAlpha * 0.9})`);
       grad.addColorStop(0.55, `rgba(60,100,220,${innerAlpha * 0.6})`);
       grad.addColorStop(1, `rgba(40,60,180,0)`);
