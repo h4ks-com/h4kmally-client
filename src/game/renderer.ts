@@ -994,13 +994,23 @@ export class Renderer {
       ctx.font = "bold 20px Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
+
+      let timeStr: string;
+      if (br.timeRemaining >= 0) {
+        // Normal shrink phase
+        const minutes = Math.floor(br.timeRemaining / 60);
+        const seconds = br.timeRemaining % 60;
+        timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+        ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
+      } else {
+        // Sudden death phase (server sends negative time)
+        const sdSecs = Math.abs(br.timeRemaining) - 1;
+        timeStr = `SUDDEN DEATH ${sdSecs}s`;
+        ctx.fillStyle = "rgba(255, 80, 80, 0.95)";
+      }
+
       ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
       ctx.lineWidth = 2;
-
-      const minutes = Math.floor(br.timeRemaining / 60);
-      const seconds = br.timeRemaining % 60;
-      const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
       const infoText = `BATTLE ROYALE  |  ${br.playersAlive} alive  |  ${timeStr}`;
       ctx.strokeText(infoText, centerX, 12);
