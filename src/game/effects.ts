@@ -540,147 +540,203 @@ registerEffect("shadow_aura", "Shadow Aura", "Dark smoke tendrils — menacing d
 }, "premium");
 
 // ── Flame ──────────────────────────────────────────────────
-// Duo-cone campfire flames — two flickering cone shapes on top of the cell,
-// each with an outer orange cone and an inner blue-ish core cone.
+// Trail-style ribbon flame — uses the same tapered-ribbon + quadratic Bézier
+// technique as the cell trail, but simulates a virtual path brushing upward
+// with a wiggling base. Produces the same naturally flickering organic look.
+//
+// Structure:
+//   • Bottom-half semicircle (105% radius) — warm base glow under the cell
+//   • Outer ribbon (orange→yellow→red) from cell center upward, 105% cell width
+//   • Inner ribbon (blue core) narrower, same path
 
-interface FlameState { phase1: number; phase2: number; wobble1: number; wobble2: number }
-const flameStates = new Map<string, FlameState>();
+const FLAME_POINTS = 20;      // resolution of the virtual trail
+const FLAME_HEIGHT = 1.6;     // flame tip height in radii above cell center
 
-registerEffect("flame", "Flame", "Flickering flames on top of your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+interface FlameRibbonState {
+  // Phase offsets for desync between cells
+  p1: number; p2: number; p3: number; p4: number; p5: number;
+}
+const flameStates = new Map<string, FlameRibbonState>();
+
+registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
 
   let state = flameStates.get(cellKey);
   if (!state) {
-    // Randomize initial phases so cells don't all flicker in sync
     state = {
-      phase1: Math.random() * PI2,
-      phase2: Math.random() * PI2,
-      wobble1: Math.random() * PI2,
-      wobble2: Math.random() * PI2,
+      p1: Math.random() * PI2,
+      p2: Math.random() * PI2,
+      p3: Math.random() * PI2,
+      p4: Math.random() * PI2,
+      p5: Math.random() * PI2,
     };
     flameStates.set(cellKey, state);
   }
 
+  const n = FLAME_POINTS;
+  const baseHalfW = radius * 1.05; // 5% wider than cell, half-width at base
+  const tipY = -radius * FLAME_HEIGHT;
+
   ctx.save();
 
-  // Warm underglow on the cell top — semicircle glow behind the flames
-  const glowPulse = 0.5 + 0.5 * Math.sin(time * 3.5 + state.phase1);
-  const glowAlpha = 0.08 + glowPulse * 0.06;
-  const glowGrad = ctx.createRadialGradient(0, -radius * 0.6, 0, 0, -radius * 0.6, radius * 0.7);
-  glowGrad.addColorStop(0, `rgba(255,120,20,${glowAlpha * 1.5})`);
-  glowGrad.addColorStop(0.5, `rgba(255,60,0,${glowAlpha})`);
-  glowGrad.addColorStop(1, "rgba(255,60,0,0)");
-  ctx.fillStyle = glowGrad;
-  ctx.beginPath();
-  ctx.arc(0, -radius * 0.6, radius * 0.7, 0, PI2);
-  ctx.fill();
-
-  // --- Configuration ---
-  // Two cones, slightly offset horizontally
-  const coneConfigs = [
-    { xOff: -0.18, heightMul: 1.0, widthMul: 1.0, phaseOff: state.phase1, wobbleOff: state.wobble1 },
-    { xOff:  0.22, heightMul: 0.85, widthMul: 0.9, phaseOff: state.phase2, wobbleOff: state.wobble2 },
-  ];
-
-  for (const cone of coneConfigs) {
-    // Flickering animation
-    const flicker1 = Math.sin(time * 7.0 + cone.phaseOff);
-    const flicker2 = Math.sin(time * 11.3 + cone.phaseOff * 1.7);
-    const flicker3 = Math.sin(time * 4.2 + cone.phaseOff * 0.6);
-    const wobbleX = Math.sin(time * 5.5 + cone.wobbleOff) * radius * 0.03;
-
-    // Cone geometry
-    const baseY = -radius * 0.85; // base of flame (just above cell top edge)
-    const baseWidth = radius * 0.28 * cone.widthMul * (0.9 + flicker2 * 0.1);
-    const tipHeight = radius * (0.55 + flicker1 * 0.12 + flicker3 * 0.06) * cone.heightMul;
-    const tipY = baseY - tipHeight;
-    const baseCx = cone.xOff * radius + wobbleX;
-
-    // ── Outer cone (orange / yellow) ──
+  // ── Bottom-half warm semicircle base ──
+  // Covers the lower hemisphere of the cell + 5% overhang, creating the
+  // illusion that the flame wraps up from underneath.
+  {
+    const baseGrad = ctx.createRadialGradient(0, radius * 0.1, radius * 0.2, 0, radius * 0.1, radius * 1.15);
+    const basePulse = 0.5 + 0.5 * Math.sin(time * 4.0 + state.p1);
+    const bAlpha = 0.25 + basePulse * 0.1;
+    baseGrad.addColorStop(0, `rgba(255,180,60,${bAlpha})`);
+    baseGrad.addColorStop(0.5, `rgba(255,100,20,${bAlpha * 0.7})`);
+    baseGrad.addColorStop(1, `rgba(255,60,0,0)`);
+    ctx.fillStyle = baseGrad;
     ctx.beginPath();
-    // Left base, tip, right base — using quadratics for organic flame shape
-    const outerLeft = baseCx - baseWidth;
-    const outerRight = baseCx + baseWidth;
-    const tipX = baseCx + wobbleX * 0.5;
-
-    ctx.moveTo(outerLeft, baseY);
-    // Left edge curves inward toward tip (control point pulls toward center)
-    ctx.quadraticCurveTo(
-      baseCx - baseWidth * 0.25 + wobbleX * 0.3,
-      baseY - tipHeight * 0.6,
-      tipX,
-      tipY,
-    );
-    // Right edge curves back down
-    ctx.quadraticCurveTo(
-      baseCx + baseWidth * 0.25 + wobbleX * 0.3,
-      baseY - tipHeight * 0.6,
-      outerRight,
-      baseY,
-    );
+    // Draw semicircle on the bottom half (from π to 2π = bottom hemisphere)
+    ctx.arc(0, 0, radius * 1.08, 0, Math.PI, false);
     ctx.closePath();
-
-    // Gradient: yellow at base → orange in middle → red-orange at tip
-    const outerGrad = ctx.createLinearGradient(baseCx, baseY, tipX, tipY);
-    const outerAlpha = 0.75 + flicker1 * 0.1;
-    outerGrad.addColorStop(0, `rgba(255,200,40,${outerAlpha})`);
-    outerGrad.addColorStop(0.3, `rgba(255,140,20,${outerAlpha})`);
-    outerGrad.addColorStop(0.7, `rgba(255,80,10,${outerAlpha * 0.9})`);
-    outerGrad.addColorStop(1, `rgba(220,50,0,${outerAlpha * 0.5})`);
-    ctx.fillStyle = outerGrad;
     ctx.fill();
+  }
 
-    // ── Inner cone (blue-ish core) ──
-    // Smaller, sits inside the outer cone at the base
-    const innerWidthRatio = 0.45;
-    const innerHeightRatio = 0.55 + flicker2 * 0.08;
-    const innerBaseWidth = baseWidth * innerWidthRatio;
-    const innerTipHeight = tipHeight * innerHeightRatio;
-    const innerTipY = baseY - innerTipHeight;
-    const innerLeft = baseCx - innerBaseWidth;
-    const innerRight = baseCx + innerBaseWidth;
-    const innerTipX = baseCx + wobbleX * 0.3;
+  // ── Build virtual trail points going upward from cell center ──
+  // Each point is (x, y) where y goes from 0 (base) to tipY (tip).
+  // x wobbles based on multiple sine waves to simulate flickering.
+  const trail: { x: number; y: number }[] = [];
 
-    ctx.beginPath();
-    ctx.moveTo(innerLeft, baseY);
-    ctx.quadraticCurveTo(
-      baseCx - innerBaseWidth * 0.2 + wobbleX * 0.15,
-      baseY - innerTipHeight * 0.55,
-      innerTipX,
-      innerTipY,
-    );
-    ctx.quadraticCurveTo(
-      baseCx + innerBaseWidth * 0.2 + wobbleX * 0.15,
-      baseY - innerTipHeight * 0.55,
-      innerRight,
-      baseY,
-    );
-    ctx.closePath();
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1); // 0 = base (cell center), 1 = tip
 
-    // Cool blue core gradient
-    const innerGrad = ctx.createLinearGradient(baseCx, baseY, innerTipX, innerTipY);
-    const innerAlpha = 0.7 + flicker3 * 0.1;
-    innerGrad.addColorStop(0, `rgba(180,210,255,${innerAlpha})`);
-    innerGrad.addColorStop(0.35, `rgba(100,160,255,${innerAlpha * 0.9})`);
-    innerGrad.addColorStop(0.7, `rgba(60,100,220,${innerAlpha * 0.7})`);
-    innerGrad.addColorStop(1, `rgba(40,60,180,${innerAlpha * 0.3})`);
-    ctx.fillStyle = innerGrad;
-    ctx.fill();
+    const y = t * tipY; // tipY is negative (upward)
 
-    // ── Faint bright core accent ──
-    // Tiny bright spot at the very base center for that white-hot look
-    if (sr >= 25) {
-      const hotSpotR = baseWidth * 0.2;
-      const hotGrad = ctx.createRadialGradient(baseCx, baseY, 0, baseCx, baseY, hotSpotR);
-      hotGrad.addColorStop(0, `rgba(255,255,240,${0.5 + flicker1 * 0.15})`);
-      hotGrad.addColorStop(0.6, `rgba(200,220,255,${0.2 + flicker2 * 0.05})`);
-      hotGrad.addColorStop(1, "rgba(200,220,255,0)");
-      ctx.fillStyle = hotGrad;
-      ctx.beginPath();
-      ctx.arc(baseCx, baseY, hotSpotR, 0, PI2);
-      ctx.fill();
+    // Wobble accumulates toward the tip — base is stable, tip dances wildly
+    // Multiple frequencies for natural randomness
+    const wobbleAmt = t * t * radius * 0.35;
+    const w1 = Math.sin(time * 8.0  + state.p1 + t * 3.0) * wobbleAmt;
+    const w2 = Math.sin(time * 13.0 + state.p2 + t * 5.0) * wobbleAmt * 0.5;
+    const w3 = Math.sin(time * 5.5  + state.p3 + t * 2.0) * wobbleAmt * 0.3;
+    // Base sway — the whole flame leans left/right slowly
+    const baseSway = Math.sin(time * 2.5 + state.p4) * radius * 0.08 * t;
+
+    const x = w1 + w2 + w3 + baseSway;
+    trail.push({ x, y });
+  }
+
+  // ── Build tapered ribbon edges (same technique as cell trails) ──
+  function buildRibbon(pts: { x: number; y: number }[], headWidth: number) {
+    const leftEdge: { x: number; y: number }[] = [];
+    const rightEdge: { x: number; y: number }[] = [];
+    const count = pts.length;
+
+    for (let i = 0; i < count; i++) {
+      // t: 0 = base (wide), 1 = tip (tapers to 0)
+      const t = i / (count - 1);
+      // Inverted sqrt taper: widest at base, tapers to point at tip
+      // Same sqrt curve as trail but reversed: width = headWidth * sqrt(1 - t)
+      const width = headWidth * Math.sqrt(1 - t);
+
+      // Tangent from neighboring points
+      const prev = pts[Math.max(0, i - 1)];
+      const next = pts[Math.min(count - 1, i + 1)];
+      let tx = next.x - prev.x;
+      let ty = next.y - prev.y;
+      const len = Math.sqrt(tx * tx + ty * ty);
+      if (len < 0.001) { tx = 0; ty = -1; } else { tx /= len; ty /= len; }
+
+      // Perpendicular
+      const nx = -ty;
+      const ny = tx;
+
+      const pt = pts[i];
+      leftEdge.push({ x: pt.x + nx * width, y: pt.y + ny * width });
+      rightEdge.push({ x: pt.x - nx * width, y: pt.y - ny * width });
     }
+    return { leftEdge, rightEdge };
+  }
+
+  function drawRibbon(
+    leftEdge: { x: number; y: number }[],
+    rightEdge: { x: number; y: number }[],
+    fill: CanvasGradient | string,
+  ) {
+    ctx.beginPath();
+    // Left edge (base → tip)
+    ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+    for (let i = 1; i < leftEdge.length; i++) {
+      if (i < leftEdge.length - 1) {
+        const mx = (leftEdge[i].x + leftEdge[i + 1].x) / 2;
+        const my = (leftEdge[i].y + leftEdge[i + 1].y) / 2;
+        ctx.quadraticCurveTo(leftEdge[i].x, leftEdge[i].y, mx, my);
+      } else {
+        ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+      }
+    }
+    // Right edge (tip → base, reversed)
+    for (let i = rightEdge.length - 1; i >= 0; i--) {
+      if (i > 0) {
+        const mx = (rightEdge[i].x + rightEdge[i - 1].x) / 2;
+        const my = (rightEdge[i].y + rightEdge[i - 1].y) / 2;
+        ctx.quadraticCurveTo(rightEdge[i].x, rightEdge[i].y, mx, my);
+      } else {
+        ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+      }
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+
+  // ── Outer flame ribbon (orange → yellow → red) ──
+  {
+    const { leftEdge, rightEdge } = buildRibbon(trail, baseHalfW);
+    const flickerA = 0.5 + 0.5 * Math.sin(time * 6.0 + state.p5);
+    const outerAlpha = 0.6 + flickerA * 0.15;
+    const grad = ctx.createLinearGradient(0, 0, trail[n - 1].x, tipY);
+    grad.addColorStop(0, `rgba(255,200,50,${outerAlpha})`);
+    grad.addColorStop(0.2, `rgba(255,150,20,${outerAlpha})`);
+    grad.addColorStop(0.5, `rgba(255,80,10,${outerAlpha * 0.85})`);
+    grad.addColorStop(0.8, `rgba(200,40,0,${outerAlpha * 0.5})`);
+    grad.addColorStop(1, `rgba(150,20,0,0)`);
+    drawRibbon(leftEdge, rightEdge, grad);
+  }
+
+  // ── Inner flame ribbon (blue core) — narrower, shorter ──
+  {
+    // Inner trail: same path but slightly compress the height
+    const innerTrail: { x: number; y: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      // Inner flame is ~60% the height of the outer
+      innerTrail.push({ x: trail[i].x * 0.7, y: trail[i].y * 0.6 });
+      // Stop the inner trail at about 60% up (the rest is just outer orange)
+      if (t > 0.65) break;
+    }
+    const innerN = innerTrail.length;
+    if (innerN >= 3) {
+      const { leftEdge, rightEdge } = buildRibbon(innerTrail, baseHalfW * 0.5);
+      const flickerB = 0.5 + 0.5 * Math.sin(time * 9.0 + state.p3);
+      const innerAlpha = 0.55 + flickerB * 0.15;
+      const tipPt = innerTrail[innerN - 1];
+      const grad = ctx.createLinearGradient(0, 0, tipPt.x, tipPt.y);
+      grad.addColorStop(0, `rgba(200,225,255,${innerAlpha})`);
+      grad.addColorStop(0.3, `rgba(120,170,255,${innerAlpha * 0.9})`);
+      grad.addColorStop(0.65, `rgba(60,100,220,${innerAlpha * 0.6})`);
+      grad.addColorStop(1, `rgba(40,60,180,0)`);
+      drawRibbon(leftEdge, rightEdge, grad);
+    }
+  }
+
+  // ── Hot core spot at the very base ──
+  if (sr >= 20) {
+    const corePulse = 0.5 + 0.5 * Math.sin(time * 5.0 + state.p2);
+    const coreR = radius * 0.18;
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+    coreGrad.addColorStop(0, `rgba(255,255,245,${0.4 + corePulse * 0.15})`);
+    coreGrad.addColorStop(0.5, `rgba(200,220,255,${0.15 + corePulse * 0.05})`);
+    coreGrad.addColorStop(1, "rgba(200,220,255,0)");
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, coreR, 0, PI2);
+    ctx.fill();
   }
 
   ctx.restore();
