@@ -587,10 +587,10 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
   {
     const baseGrad = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.35);
     const basePulse = 0.5 + 0.5 * Math.sin(time * 7.46 + state.p1);
-    const bAlpha = 0.3 + basePulse * 0.1;
+    const bAlpha = 0.65 + basePulse * 0.1;
     baseGrad.addColorStop(0, `rgba(255,200,50,${bAlpha})`);
     baseGrad.addColorStop(0.4, `rgba(255,150,30,${bAlpha * 0.85})`);
-    baseGrad.addColorStop(0.75, `rgba(255,80,10,${bAlpha * 0.5})`);
+    baseGrad.addColorStop(0.75, `rgba(255,80,10,${bAlpha * 0.55})`);
     baseGrad.addColorStop(1, `rgba(255,60,0,0)`);
     ctx.fillStyle = baseGrad;
     ctx.beginPath();
