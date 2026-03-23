@@ -545,9 +545,8 @@ registerEffect("shadow_aura", "Shadow Aura", "Dark smoke tendrils — menacing d
 // with a wiggling base. Produces the same naturally flickering organic look.
 //
 // Structure:
-//   • Full-circle warm base (112% radius) — covers entire cell so flame base
-//     never reveals gaps when wobbling; color-matched to flame palette
-//   • Outer ribbon (orange→yellow→red) from cell center upward, 105% cell width
+//   • Single unified shape — cone with convex semicircle base (no separate circle)
+//   • Outer ribbon (orange→yellow→red) from cell center upward, 125% cell width
 //   • Inner ribbon (blue core) narrower, same path
 
 const FLAME_POINTS = 20;      // resolution of the virtual trail
@@ -581,42 +580,16 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
 
   ctx.save();
 
-  // ── Full-circle warm base ──
-  // Covers the entire cell and extends past the cone base so circle and
-  // cone look like one unified flame. Stays solid through the cone-base
-  // region (~1.25r) and only fades at the outer fringe.
-  {
-    const baseGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 1.45);
-    const basePulse = 0.5 + 0.5 * Math.sin(time * 7.46 + state.p1);
-    const bAlpha = 0.7 + basePulse * 0.1;
-    // Solid through center and cone-base region
-    baseGrad.addColorStop(0, `rgba(255,200,50,${bAlpha})`);
-    baseGrad.addColorStop(0.55, `rgba(255,160,30,${bAlpha * 0.9})`);
-    baseGrad.addColorStop(0.78, `rgba(255,100,15,${bAlpha * 0.7})`);
-    // Fade only at the outer fringe
-    baseGrad.addColorStop(0.92, `rgba(255,60,0,${bAlpha * 0.25})`);
-    baseGrad.addColorStop(1, `rgba(255,60,0,0)`);
-    ctx.fillStyle = baseGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 1.45, 0, PI2);
-    ctx.fill();
-  }
-
-  // ── Build virtual trail points going upward ──
-  // Starts at y = -radius*0.4 (inside the solid circle glow), NOT at cell
-  // center — this buries the wide ribbon base under the opaque circle so
-  // no geometric edge is visible.
+  // ── Build virtual trail points going upward from cell center ──
   const trail: { x: number; y: number }[] = [];
-  const startY = -radius * 0.4; // inside the circle, hidden from view
 
   for (let i = 0; i < n; i++) {
-    const t = i / (n - 1); // 0 = base, 1 = tip
+    const t = i / (n - 1); // 0 = base (cell center), 1 = tip
 
-    const y = startY + t * (tipY - startY); // lerp from startY to tipY
+    const y = t * tipY; // tipY is negative (upward)
 
     // Wobble accumulates toward the tip — base is stable, tip dances wildly
-    // Irrational frequency ratios (√2, √3, φ, π based) so the pattern
-    // never visibly repeats — avoids the "wobble-wobble-rest" cycle
+    // Irrational frequency ratios so the pattern never visibly repeats
     const wobbleAmt = t * t * radius * 0.18;
     const w1 = Math.sin(time * 14.62 + state.p1 + t * 2.73) * wobbleAmt;
     const w2 = Math.sin(time * 23.94 + state.p2 + t * 4.19) * wobbleAmt * 0.5;
@@ -636,13 +609,9 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const count = pts.length;
 
     for (let i = 0; i < count; i++) {
-      // t: 0 = base (wide), 1 = tip (tapers to 0)
       const t = i / (count - 1);
-      // Inverted sqrt taper: widest at base, tapers to point at tip
-      // Same sqrt curve as trail but reversed: width = headWidth * sqrt(1 - t)
       const width = headWidth * Math.sqrt(1 - t);
 
-      // Tangent from neighboring points
       const prev = pts[Math.max(0, i - 1)];
       const next = pts[Math.min(count - 1, i + 1)];
       let tx = next.x - prev.x;
@@ -650,7 +619,6 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       const len = Math.sqrt(tx * tx + ty * ty);
       if (len < 0.001) { tx = 0; ty = -1; } else { tx /= len; ty /= len; }
 
-      // Perpendicular
       const nx = -ty;
       const ny = tx;
 
@@ -661,14 +629,23 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     return { leftEdge, rightEdge };
   }
 
-  function drawRibbon(
+  // Draw ribbon with a convex semicircle base instead of a straight line.
+  // The arc bulges downward from the left base point to the right base point,
+  // creating a smooth rounded bottom — one unified flame shape, no seams.
+  function drawRibbonWithArcBase(
     leftEdge: { x: number; y: number }[],
     rightEdge: { x: number; y: number }[],
     fill: CanvasGradient | string,
   ) {
+    const lBase = leftEdge[0];
+    const rBase = rightEdge[0];
+
     ctx.beginPath();
-    // Left edge (base → tip)
-    ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+
+    // Start at left base
+    ctx.moveTo(lBase.x, lBase.y);
+
+    // Left edge upward (base → tip)
     for (let i = 1; i < leftEdge.length; i++) {
       if (i < leftEdge.length - 1) {
         const mx = (leftEdge[i].x + leftEdge[i + 1].x) / 2;
@@ -678,7 +655,8 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
         ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
       }
     }
-    // Right edge (tip → base, reversed)
+
+    // Right edge downward (tip → base)
     for (let i = rightEdge.length - 1; i >= 0; i--) {
       if (i > 0) {
         const mx = (rightEdge[i].x + rightEdge[i - 1].x) / 2;
@@ -688,7 +666,15 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
         ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
       }
     }
-    ctx.closePath();
+
+    // Convex semicircle arc from right base → left base (bulging downward)
+    // Control point is below the midpoint of the base line
+    const midX = (lBase.x + rBase.x) / 2;
+    const midY = (lBase.y + rBase.y) / 2;
+    const baseWidth = Math.abs(rBase.x - lBase.x);
+    const bulge = baseWidth * 0.45; // how far the arc bulges down
+    ctx.quadraticCurveTo(midX, midY + bulge, lBase.x, lBase.y);
+
     ctx.fillStyle = fill;
     ctx.fill();
   }
@@ -698,26 +684,21 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const { leftEdge, rightEdge } = buildRibbon(trail, baseHalfW);
     const flickerA = 0.5 + 0.5 * Math.sin(time * 11.66 + state.p5);
     const outerAlpha = 0.6 + flickerA * 0.15;
-    const grad = ctx.createLinearGradient(0, 0, trail[n - 1].x, tipY);
-    // Base fade-in uses fixed alpha (no flicker) so it never pops in/out
-    grad.addColorStop(0, `rgba(255,200,50,0)`);
-    grad.addColorStop(0.1, `rgba(255,200,50,0.18)`);
-    grad.addColorStop(0.22, `rgba(255,150,20,${outerAlpha})`);
+    const grad = ctx.createLinearGradient(0, trail[0].y, trail[n - 1].x, tipY);
+    grad.addColorStop(0, `rgba(255,200,50,${outerAlpha})`);
+    grad.addColorStop(0.15, `rgba(255,150,20,${outerAlpha})`);
     grad.addColorStop(0.4, `rgba(255,80,10,${outerAlpha * 0.85})`);
     grad.addColorStop(0.7, `rgba(200,40,0,${outerAlpha * 0.5})`);
     grad.addColorStop(1, `rgba(150,20,0,0)`);
-    drawRibbon(leftEdge, rightEdge, grad);
+    drawRibbonWithArcBase(leftEdge, rightEdge, grad);
   }
 
   // ── Inner flame ribbon (blue core) — narrower, shorter ──
   {
-    // Inner trail: same path but slightly compress the height
     const innerTrail: { x: number; y: number }[] = [];
     for (let i = 0; i < n; i++) {
       const t = i / (n - 1);
-      // Inner flame is ~60% the height of the outer
       innerTrail.push({ x: trail[i].x * 0.7, y: trail[i].y * 0.6 });
-      // Stop the inner trail at about 60% up (the rest is just outer orange)
       if (t > 0.65) break;
     }
     const innerN = innerTrail.length;
@@ -726,14 +707,12 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
       const flickerB = 0.5 + 0.5 * Math.sin(time * 16.74 + state.p3);
       const innerAlpha = 0.55 + flickerB * 0.15;
       const tipPt = innerTrail[innerN - 1];
-      const grad = ctx.createLinearGradient(0, 0, tipPt.x, tipPt.y);
-      // Base fade-in uses fixed alpha (no flicker) so it never pops in/out
-      grad.addColorStop(0, `rgba(200,225,255,0)`);
-      grad.addColorStop(0.12, `rgba(200,225,255,0.22)`);
-      grad.addColorStop(0.28, `rgba(120,170,255,${innerAlpha * 0.9})`);
+      const grad = ctx.createLinearGradient(0, innerTrail[0].y, tipPt.x, tipPt.y);
+      grad.addColorStop(0, `rgba(200,225,255,${innerAlpha})`);
+      grad.addColorStop(0.2, `rgba(120,170,255,${innerAlpha * 0.9})`);
       grad.addColorStop(0.55, `rgba(60,100,220,${innerAlpha * 0.6})`);
       grad.addColorStop(1, `rgba(40,60,180,0)`);
-      drawRibbon(leftEdge, rightEdge, grad);
+      drawRibbonWithArcBase(leftEdge, rightEdge, grad);
     }
   }
 
