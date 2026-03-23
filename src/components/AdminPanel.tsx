@@ -348,19 +348,19 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
           <div className="admin-br-controls">
             <strong>Battle Royale</strong>
             <span className="admin-br-status">
-              {brStatus ? `${brStatus.state} | ${brStatus.playersAlive} alive` : "Loading..."}
+              {brStatus ? `${["Inactive","Countdown","Active","Finished"][brStatus.state] || brStatus.state} | ${brStatus.playersAlive} alive` : "Loading..."}
             </span>
             <button
               className="admin-btn admin-btn-br-start"
               onClick={handleBRStart}
-              disabled={brStatus?.state === "active" || brStatus?.state === "countdown"}
+              disabled={brStatus?.state === 2 || brStatus?.state === 1}
             >
               Start BR
             </button>
             <button
               className="admin-btn admin-btn-br-stop"
               onClick={handleBRStop}
-              disabled={brStatus?.state === "inactive"}
+              disabled={brStatus?.state === 0}
             >
               Stop BR
             </button>
