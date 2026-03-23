@@ -61,7 +61,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [uploadCategory, setUploadCategory] = useState("free");
   const [uploadRarity, setUploadRarity] = useState("common");
   const [uploadMinLevel, setUploadMinLevel] = useState(1);
-  const [brStatus, setBrStatus] = useState<{ state: string; playersAlive: number; timeRemaining: number } | null>(null);
+  const [brStatus, setBrStatus] = useState<{ state: number; playersAlive: number; timeRemaining: number } | null>(null);
 
   const api = useCallback(
     async (endpoint: string, method = "GET", body?: Record<string, unknown>) => {

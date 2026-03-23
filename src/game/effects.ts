@@ -666,7 +666,8 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     arcRadius: number,
   ) {
     const lBase = leftEdge[0];  // +x side (right on screen)
-    const rBase = rightEdge[0]; // -x side (left on screen)
+    // rBase = rightEdge[0] is the -x side; not referenced directly since
+    // the arc connects back from rightEdge[0] to lBase automatically.
 
     ctx.beginPath();
 
