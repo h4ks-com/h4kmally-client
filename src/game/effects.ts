@@ -540,90 +540,148 @@ registerEffect("shadow_aura", "Shadow Aura", "Dark smoke tendrils — menacing d
 }, "premium");
 
 // ── Flame ──────────────────────────────────────────────────
-// Fire particles — swap-with-last compaction, capped count, no shadow.
+// Duo-cone campfire flames — two flickering cone shapes on top of the cell,
+// each with an outer orange cone and an inner blue-ish core cone.
 
-interface FlameParticle { angle: number; life: number; maxLife: number; speed: number; size: number }
-const flameStates = new Map<string, { particles: FlameParticle[]; count: number }>();
+interface FlameState { phase1: number; phase2: number; wobble1: number; wobble2: number }
+const flameStates = new Map<string, FlameState>();
 
-registerEffect("flame", "Flame", "Rising fire particles around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+registerEffect("flame", "Flame", "Flickering flames on top of your cell", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
 
   let state = flameStates.get(cellKey);
   if (!state) {
-    state = { particles: [], count: 0 };
+    // Randomize initial phases so cells don't all flicker in sync
+    state = {
+      phase1: Math.random() * PI2,
+      phase2: Math.random() * PI2,
+      wobble1: Math.random() * PI2,
+      wobble2: Math.random() * PI2,
+    };
     flameStates.set(cellKey, state);
-  }
-
-  // Spawn particles (capped)
-  const maxParticles = sr < 40 ? 20 : 40;
-  const spawnRate = Math.min(4, Math.max(1, Math.floor(radius / 40)));
-  for (let i = 0; i < spawnRate; i++) {
-    if (state.count < maxParticles && Math.random() < 0.4) {
-      if (state.count < state.particles.length) {
-        const p = state.particles[state.count];
-        p.angle = Math.random() * PI2;
-        p.life = 0;
-        p.maxLife = 15 + Math.random() * 25;
-        p.speed = 0.3 + Math.random() * 0.6;
-        p.size = 0.5 + Math.random() * 1.0;
-      } else {
-        state.particles.push({
-          angle: Math.random() * PI2,
-          life: 0,
-          maxLife: 15 + Math.random() * 25,
-          speed: 0.3 + Math.random() * 0.6,
-          size: 0.5 + Math.random() * 1.0,
-        });
-      }
-      state.count++;
-    }
   }
 
   ctx.save();
 
-  // Warm glow ring (wide stroke, no shadow)
-  const pulse = 0.5 + 0.5 * Math.sin(time * 4);
-  ctx.strokeStyle = `rgba(255,80,0,${0.15 + pulse * 0.12})`;
-  ctx.lineWidth = Math.max(4, radius * 0.06);
+  // Warm underglow on the cell top — semicircle glow behind the flames
+  const glowPulse = 0.5 + 0.5 * Math.sin(time * 3.5 + state.phase1);
+  const glowAlpha = 0.08 + glowPulse * 0.06;
+  const glowGrad = ctx.createRadialGradient(0, -radius * 0.6, 0, 0, -radius * 0.6, radius * 0.7);
+  glowGrad.addColorStop(0, `rgba(255,120,20,${glowAlpha * 1.5})`);
+  glowGrad.addColorStop(0.5, `rgba(255,60,0,${glowAlpha})`);
+  glowGrad.addColorStop(1, "rgba(255,60,0,0)");
+  ctx.fillStyle = glowGrad;
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.02, 0, PI2);
-  ctx.stroke();
+  ctx.arc(0, -radius * 0.6, radius * 0.7, 0, PI2);
+  ctx.fill();
 
-  // Draw particles — swap-with-last compaction
-  let writeIdx = 0;
-  for (let i = 0; i < state.count; i++) {
-    const p = state.particles[i];
-    p.life++;
-    if (p.life > p.maxLife) continue; // dead
+  // --- Configuration ---
+  // Two cones, slightly offset horizontally
+  const coneConfigs = [
+    { xOff: -0.18, heightMul: 1.0, widthMul: 1.0, phaseOff: state.phase1, wobbleOff: state.wobble1 },
+    { xOff:  0.22, heightMul: 0.85, widthMul: 0.9, phaseOff: state.phase2, wobbleOff: state.wobble2 },
+  ];
 
-    if (writeIdx !== i) state.particles[writeIdx] = state.particles[i];
-    writeIdx++;
+  for (const cone of coneConfigs) {
+    // Flickering animation
+    const flicker1 = Math.sin(time * 7.0 + cone.phaseOff);
+    const flicker2 = Math.sin(time * 11.3 + cone.phaseOff * 1.7);
+    const flicker3 = Math.sin(time * 4.2 + cone.phaseOff * 0.6);
+    const wobbleX = Math.sin(time * 5.5 + cone.wobbleOff) * radius * 0.03;
 
-    const progress = p.life / p.maxLife;
-    const dist = radius * 1.02 + p.speed * p.life * Math.max(1, radius * 0.01);
-    const wobble = Math.sin(time * 6 + p.angle * 5 + p.life * 0.3) * radius * 0.02;
-    const px = Math.cos(p.angle) * dist + wobble;
-    const py = Math.sin(p.angle) * dist;
-    const sz = p.size * Math.max(1.5, radius * 0.018) * (1 - progress * 0.5);
+    // Cone geometry
+    const baseY = -radius * 0.85; // base of flame (just above cell top edge)
+    const baseWidth = radius * 0.28 * cone.widthMul * (0.9 + flicker2 * 0.1);
+    const tipHeight = radius * (0.55 + flicker1 * 0.12 + flicker3 * 0.06) * cone.heightMul;
+    const tipY = baseY - tipHeight;
+    const baseCx = cone.xOff * radius + wobbleX;
 
-    // Color: yellow → orange → red
-    let pr: number, pg: number, pb: number;
-    if (progress < 0.3) {
-      pr = 255; pg = 255 - progress * 300; pb = 50;
-    } else if (progress < 0.6) {
-      pr = 255; pg = Math.max(0, 165 - (progress - 0.3) * 500); pb = 0;
-    } else {
-      pr = 255 - (progress - 0.6) * 300; pg = 0; pb = 0;
-    }
-
-    const alpha = (1 - progress) * 0.8;
+    // ── Outer cone (orange / yellow) ──
     ctx.beginPath();
-    ctx.arc(px, py, sz, 0, PI2);
-    ctx.fillStyle = `rgba(${Math.round(pr)},${Math.round(pg)},${Math.round(pb)},${alpha})`;
+    // Left base, tip, right base — using quadratics for organic flame shape
+    const outerLeft = baseCx - baseWidth;
+    const outerRight = baseCx + baseWidth;
+    const tipX = baseCx + wobbleX * 0.5;
+
+    ctx.moveTo(outerLeft, baseY);
+    // Left edge curves inward toward tip (control point pulls toward center)
+    ctx.quadraticCurveTo(
+      baseCx - baseWidth * 0.25 + wobbleX * 0.3,
+      baseY - tipHeight * 0.6,
+      tipX,
+      tipY,
+    );
+    // Right edge curves back down
+    ctx.quadraticCurveTo(
+      baseCx + baseWidth * 0.25 + wobbleX * 0.3,
+      baseY - tipHeight * 0.6,
+      outerRight,
+      baseY,
+    );
+    ctx.closePath();
+
+    // Gradient: yellow at base → orange in middle → red-orange at tip
+    const outerGrad = ctx.createLinearGradient(baseCx, baseY, tipX, tipY);
+    const outerAlpha = 0.75 + flicker1 * 0.1;
+    outerGrad.addColorStop(0, `rgba(255,200,40,${outerAlpha})`);
+    outerGrad.addColorStop(0.3, `rgba(255,140,20,${outerAlpha})`);
+    outerGrad.addColorStop(0.7, `rgba(255,80,10,${outerAlpha * 0.9})`);
+    outerGrad.addColorStop(1, `rgba(220,50,0,${outerAlpha * 0.5})`);
+    ctx.fillStyle = outerGrad;
     ctx.fill();
+
+    // ── Inner cone (blue-ish core) ──
+    // Smaller, sits inside the outer cone at the base
+    const innerWidthRatio = 0.45;
+    const innerHeightRatio = 0.55 + flicker2 * 0.08;
+    const innerBaseWidth = baseWidth * innerWidthRatio;
+    const innerTipHeight = tipHeight * innerHeightRatio;
+    const innerTipY = baseY - innerTipHeight;
+    const innerLeft = baseCx - innerBaseWidth;
+    const innerRight = baseCx + innerBaseWidth;
+    const innerTipX = baseCx + wobbleX * 0.3;
+
+    ctx.beginPath();
+    ctx.moveTo(innerLeft, baseY);
+    ctx.quadraticCurveTo(
+      baseCx - innerBaseWidth * 0.2 + wobbleX * 0.15,
+      baseY - innerTipHeight * 0.55,
+      innerTipX,
+      innerTipY,
+    );
+    ctx.quadraticCurveTo(
+      baseCx + innerBaseWidth * 0.2 + wobbleX * 0.15,
+      baseY - innerTipHeight * 0.55,
+      innerRight,
+      baseY,
+    );
+    ctx.closePath();
+
+    // Cool blue core gradient
+    const innerGrad = ctx.createLinearGradient(baseCx, baseY, innerTipX, innerTipY);
+    const innerAlpha = 0.7 + flicker3 * 0.1;
+    innerGrad.addColorStop(0, `rgba(180,210,255,${innerAlpha})`);
+    innerGrad.addColorStop(0.35, `rgba(100,160,255,${innerAlpha * 0.9})`);
+    innerGrad.addColorStop(0.7, `rgba(60,100,220,${innerAlpha * 0.7})`);
+    innerGrad.addColorStop(1, `rgba(40,60,180,${innerAlpha * 0.3})`);
+    ctx.fillStyle = innerGrad;
+    ctx.fill();
+
+    // ── Faint bright core accent ──
+    // Tiny bright spot at the very base center for that white-hot look
+    if (sr >= 25) {
+      const hotSpotR = baseWidth * 0.2;
+      const hotGrad = ctx.createRadialGradient(baseCx, baseY, 0, baseCx, baseY, hotSpotR);
+      hotGrad.addColorStop(0, `rgba(255,255,240,${0.5 + flicker1 * 0.15})`);
+      hotGrad.addColorStop(0.6, `rgba(200,220,255,${0.2 + flicker2 * 0.05})`);
+      hotGrad.addColorStop(1, "rgba(200,220,255,0)");
+      ctx.fillStyle = hotGrad;
+      ctx.beginPath();
+      ctx.arc(baseCx, baseY, hotSpotR, 0, PI2);
+      ctx.fill();
+    }
   }
-  state.count = writeIdx;
 
   ctx.restore();
 }, "premium");
