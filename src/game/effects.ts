@@ -545,7 +545,8 @@ registerEffect("shadow_aura", "Shadow Aura", "Dark smoke tendrils — menacing d
 // with a wiggling base. Produces the same naturally flickering organic look.
 //
 // Structure:
-//   • Bottom-half semicircle (105% radius) — warm base glow under the cell
+//   • Full-circle warm base (112% radius) — covers entire cell so flame base
+//     never reveals gaps when wobbling; color-matched to flame palette
 //   • Outer ribbon (orange→yellow→red) from cell center upward, 105% cell width
 //   • Inner ribbon (blue core) narrower, same path
 
@@ -580,21 +581,20 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
 
   ctx.save();
 
-  // ── Bottom-half warm semicircle base ──
-  // Covers the lower hemisphere of the cell + 5% overhang, creating the
-  // illusion that the flame wraps up from underneath.
+  // ── Full-circle warm base ──
+  // Covers the entire cell so the flame ribbon base never reveals gaps
+  // when wobbling. Color-matched to the flame's orange/yellow palette.
   {
-    const baseGrad = ctx.createRadialGradient(0, radius * 0.1, radius * 0.2, 0, radius * 0.1, radius * 1.15);
-    const basePulse = 0.5 + 0.5 * Math.sin(time * 4.0 + state.p1);
-    const bAlpha = 0.25 + basePulse * 0.1;
-    baseGrad.addColorStop(0, `rgba(255,180,60,${bAlpha})`);
-    baseGrad.addColorStop(0.5, `rgba(255,100,20,${bAlpha * 0.7})`);
+    const baseGrad = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.12);
+    const basePulse = 0.5 + 0.5 * Math.sin(time * 3.73 + state.p1);
+    const bAlpha = 0.3 + basePulse * 0.1;
+    baseGrad.addColorStop(0, `rgba(255,200,50,${bAlpha})`);
+    baseGrad.addColorStop(0.4, `rgba(255,150,30,${bAlpha * 0.85})`);
+    baseGrad.addColorStop(0.75, `rgba(255,80,10,${bAlpha * 0.5})`);
     baseGrad.addColorStop(1, `rgba(255,60,0,0)`);
     ctx.fillStyle = baseGrad;
     ctx.beginPath();
-    // Draw semicircle on the bottom half (from π to 2π = bottom hemisphere)
-    ctx.arc(0, 0, radius * 1.08, 0, Math.PI, false);
-    ctx.closePath();
+    ctx.arc(0, 0, radius * 1.12, 0, PI2);
     ctx.fill();
   }
 
@@ -609,15 +609,17 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const y = t * tipY; // tipY is negative (upward)
 
     // Wobble accumulates toward the tip — base is stable, tip dances wildly
-    // Multiple frequencies for natural randomness
+    // Irrational frequency ratios (√2, √3, φ, π based) so the pattern
+    // never visibly repeats — avoids the "wobble-wobble-rest" cycle
     const wobbleAmt = t * t * radius * 0.35;
-    const w1 = Math.sin(time * 8.0  + state.p1 + t * 3.0) * wobbleAmt;
-    const w2 = Math.sin(time * 13.0 + state.p2 + t * 5.0) * wobbleAmt * 0.5;
-    const w3 = Math.sin(time * 5.5  + state.p3 + t * 2.0) * wobbleAmt * 0.3;
-    // Base sway — the whole flame leans left/right slowly
-    const baseSway = Math.sin(time * 2.5 + state.p4) * radius * 0.08 * t;
+    const w1 = Math.sin(time * 7.31  + state.p1 + t * 2.73) * wobbleAmt;
+    const w2 = Math.sin(time * 11.97 + state.p2 + t * 4.19) * wobbleAmt * 0.5;
+    const w3 = Math.sin(time * 4.67  + state.p3 + t * 1.83) * wobbleAmt * 0.3;
+    const w4 = Math.sin(time * 17.53 + state.p5 + t * 6.41) * wobbleAmt * 0.15;
+    // Base sway — the whole flame leans left/right slowly (irrational freq)
+    const baseSway = Math.sin(time * 1.91 + state.p4) * radius * 0.08 * t;
 
-    const x = w1 + w2 + w3 + baseSway;
+    const x = w1 + w2 + w3 + w4 + baseSway;
     trail.push({ x, y });
   }
 
@@ -688,7 +690,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
   // ── Outer flame ribbon (orange → yellow → red) ──
   {
     const { leftEdge, rightEdge } = buildRibbon(trail, baseHalfW);
-    const flickerA = 0.5 + 0.5 * Math.sin(time * 6.0 + state.p5);
+    const flickerA = 0.5 + 0.5 * Math.sin(time * 5.83 + state.p5);
     const outerAlpha = 0.6 + flickerA * 0.15;
     const grad = ctx.createLinearGradient(0, 0, trail[n - 1].x, tipY);
     grad.addColorStop(0, `rgba(255,200,50,${outerAlpha})`);
@@ -713,7 +715,7 @@ registerEffect("flame", "Flame", "Blazing trail-style fire engulfing your cell",
     const innerN = innerTrail.length;
     if (innerN >= 3) {
       const { leftEdge, rightEdge } = buildRibbon(innerTrail, baseHalfW * 0.5);
-      const flickerB = 0.5 + 0.5 * Math.sin(time * 9.0 + state.p3);
+      const flickerB = 0.5 + 0.5 * Math.sin(time * 8.37 + state.p3);
       const innerAlpha = 0.55 + flickerB * 0.15;
       const tipPt = innerTrail[innerN - 1];
       const grad = ctx.createLinearGradient(0, 0, tipPt.x, tipPt.y);
