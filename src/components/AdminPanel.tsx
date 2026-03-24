@@ -73,7 +73,8 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [uploadCategory, setUploadCategory] = useState("free");
   const [uploadRarity, setUploadRarity] = useState("common");
   const [uploadMinLevel, setUploadMinLevel] = useState(1);
-  const [brStatus, setBrStatus] = useState<{ state: number; playersAlive: number; timeRemaining: number } | null>(null);
+  const [brStatus, setBrStatus] = useState<{ state: number; playersAlive: number; timeRemaining: number; autoEnabled?: boolean; autoInterval?: number } | null>(null);
+  const [autoInterval, setAutoInterval] = useState(60);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [skinFilter, setSkinFilter] = useState<"all" | "custom">("all");
 
@@ -289,6 +290,9 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     try {
       const data = await api("br/status");
       setBrStatus(data);
+      if (data.autoInterval && data.autoInterval > 0) {
+        setAutoInterval(data.autoInterval);
+      }
     } catch { /* ignore */ }
   }, [api]);
 
@@ -315,6 +319,26 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
       fetchBRStatus();
     } catch (e: unknown) {
       showMsg("error", (e as Error).message);
+    }
+  };
+
+  const handleBRAutoToggle = async (enabled: boolean) => {
+    try {
+      await api("br/auto", "POST", { enabled, intervalMinutes: autoInterval });
+      showMsg("success", enabled ? `Auto BR enabled (every ${autoInterval}m)` : "Auto BR disabled");
+      fetchBRStatus();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
+  const handleBRAutoIntervalChange = async (minutes: number) => {
+    setAutoInterval(minutes);
+    if (brStatus?.autoEnabled) {
+      try {
+        await api("br/auto", "POST", { enabled: true, intervalMinutes: minutes });
+        fetchBRStatus();
+      } catch { /* ignore */ }
     }
   };
 
@@ -403,6 +427,33 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
             >
               Stop BR
             </button>
+            <div className="admin-br-auto" style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={brStatus?.autoEnabled ?? false}
+                  onChange={e => handleBRAutoToggle(e.target.checked)}
+                />
+                Auto BR
+              </label>
+              {brStatus?.autoEnabled && (
+                <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  every
+                  <select
+                    value={autoInterval}
+                    onChange={e => handleBRAutoIntervalChange(Number(e.target.value))}
+                    style={{ padding: "2px 4px" }}
+                  >
+                    <option value={15}>15m</option>
+                    <option value={30}>30m</option>
+                    <option value={45}>45m</option>
+                    <option value={60}>1h</option>
+                    <option value={90}>1.5h</option>
+                    <option value={120}>2h</option>
+                  </select>
+                </label>
+              )}
+            </div>
           </div>
 
           {tab === "online" && (
