@@ -926,7 +926,13 @@ export class Renderer {
       ctx.save();
       ctx.clip(); // clip to the jelly shape already defined
       const imgSize = visualSize * 2;
-      ctx.drawImage(skinImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+      // Center-crop source to square to avoid stretching non-square images
+      const sw = (skinImg as HTMLImageElement).naturalWidth || (skinImg as ImageBitmap).width || imgSize;
+      const sh = (skinImg as HTMLImageElement).naturalHeight || (skinImg as ImageBitmap).height || imgSize;
+      const side = Math.min(sw, sh);
+      const sx = (sw - side) / 2;
+      const sy = (sh - side) / 2;
+      ctx.drawImage(skinImg as CanvasImageSource, sx, sy, side, side, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
       ctx.restore();
     }
 
