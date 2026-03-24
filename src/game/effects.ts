@@ -113,16 +113,17 @@ registerEffect("prismatic", "Prismatic", "Shifting rainbow border", (ctx, radius
 // ── Starfield ──────────────────────────────────────────────
 // Tiny orbiting stars — Float32Array state, no shadow.
 
+const STAR_MAX = 16;
 const starStates = new Map<string, { angles: Float32Array; sizes: Float32Array; speeds: Float32Array; twinkle: Float32Array }>();
 
-function getStarState(cellKey: string, count: number) {
+function getStarState(cellKey: string) {
   let s = starStates.get(cellKey);
-  if (!s || s.angles.length !== count) {
-    const angles = new Float32Array(count);
-    const sizes = new Float32Array(count);
-    const speeds = new Float32Array(count);
-    const twinkle = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
+  if (!s) {
+    const angles = new Float32Array(STAR_MAX);
+    const sizes = new Float32Array(STAR_MAX);
+    const speeds = new Float32Array(STAR_MAX);
+    const twinkle = new Float32Array(STAR_MAX);
+    for (let i = 0; i < STAR_MAX; i++) {
       angles[i] = Math.random() * PI2;
       sizes[i] = 1 + Math.random() * 2;
       speeds[i] = 0.2 + Math.random() * 0.6;
@@ -136,9 +137,9 @@ function getStarState(cellKey: string, count: number) {
 
 registerEffect("starfield", "Starfield", "Orbiting stars around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
-  const count = sr < 30 ? 6 : Math.max(6, Math.min(16, Math.floor(radius / 12)));
+  const count = sr < 30 ? 6 : Math.max(6, Math.min(STAR_MAX, Math.floor(radius / 12)));
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
-  const s = getStarState(cellKey, count);
+  const s = getStarState(cellKey);
 
   ctx.save();
 
@@ -428,15 +429,16 @@ registerEffect("sakura", "Sakura", "Beautiful cherry blossom petal trail", (ctx,
 // ── Frost ──────────────────────────────────────────────────
 // Ice crystals — Float32Array state, batched branches, no shadow.
 
+const FROST_MAX = 14;
 const frostStates = new Map<string, { angles: Float32Array; lengths: Float32Array; branches: Uint8Array }>();
 
-function getFrostState(cellKey: string, count: number) {
+function getFrostState(cellKey: string) {
   let s = frostStates.get(cellKey);
-  if (!s || s.angles.length !== count) {
-    const angles = new Float32Array(count);
-    const lengths = new Float32Array(count);
-    const branches = new Uint8Array(count);
-    for (let i = 0; i < count; i++) {
+  if (!s) {
+    const angles = new Float32Array(FROST_MAX);
+    const lengths = new Float32Array(FROST_MAX);
+    const branches = new Uint8Array(FROST_MAX);
+    for (let i = 0; i < FROST_MAX; i++) {
       angles[i] = Math.random() * PI2;
       lengths[i] = 0.5 + Math.random() * 1.0;
       branches[i] = 2 + Math.floor(Math.random() * 3);
@@ -449,9 +451,9 @@ function getFrostState(cellKey: string, count: number) {
 
 registerEffect("frost", "Frost", "Ice crystals and frosty mist surrounding your cell", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
-  const count = sr < 30 ? 5 : Math.max(6, Math.min(14, Math.floor(radius / 14)));
+  const count = sr < 30 ? 5 : Math.max(6, Math.min(FROST_MAX, Math.floor(radius / 14)));
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
-  const s = getFrostState(cellKey, count);
+  const s = getFrostState(cellKey);
 
   ctx.save();
 
@@ -529,15 +531,16 @@ registerEffect("frost", "Frost", "Ice crystals and frosty mist surrounding your 
 // ── Shadow Aura ────────────────────────────────────────────
 // Dark smoke tendrils — radial gradient (GPU-fast), no shadow.
 
+const SMOKE_MAX = 16;
 const smokeStates = new Map<string, { angles: Float32Array; speeds: Float32Array; offsets: Float32Array }>();
 
-function getSmokeState(cellKey: string, count: number) {
+function getSmokeState(cellKey: string) {
   let s = smokeStates.get(cellKey);
-  if (!s || s.angles.length !== count) {
-    const angles = new Float32Array(count);
-    const speeds = new Float32Array(count);
-    const offsets = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
+  if (!s) {
+    const angles = new Float32Array(SMOKE_MAX);
+    const speeds = new Float32Array(SMOKE_MAX);
+    const offsets = new Float32Array(SMOKE_MAX);
+    for (let i = 0; i < SMOKE_MAX; i++) {
       angles[i] = Math.random() * PI2;
       speeds[i] = 0.1 + Math.random() * 0.3;
       offsets[i] = Math.random() * PI2;
@@ -550,9 +553,9 @@ function getSmokeState(cellKey: string, count: number) {
 
 registerEffect("shadow_aura", "Shadow Aura", "Dark smoke tendrils — menacing dark energy", (ctx, radius, _r, _g, _b, time, sr) => {
   if (sr < 8) return;
-  const count = sr < 30 ? 6 : Math.max(8, Math.min(16, Math.floor(radius / 8)));
+  const count = sr < 30 ? 6 : Math.max(8, Math.min(SMOKE_MAX, Math.floor(radius / 8)));
   const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
-  const s = getSmokeState(cellKey, count);
+  const s = getSmokeState(cellKey);
 
   ctx.save();
 
@@ -1015,11 +1018,678 @@ registerEffect("trail", "Trail", "Smooth ribbon trail following your cell", () =
   // No-op: trail rendering is handled by the renderer's drawTrails() system
 }, "premium");
 
+// ── Plasma ─────────────────────────────────────────────────
+// Swirling plasma orbs with energy arcs between them.
+
+const PLASMA_MAX = 8;
+const plasmaStates = new Map<string, { angles: Float32Array; speeds: Float32Array; radii: Float32Array }>();
+
+registerEffect("plasma", "Plasma", "Swirling plasma orbs linked by energy arcs", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 4 : Math.min(PLASMA_MAX, Math.floor(radius / 15));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let s = plasmaStates.get(cellKey);
+  if (!s) {
+    const angles = new Float32Array(PLASMA_MAX);
+    const speeds = new Float32Array(PLASMA_MAX);
+    const radii = new Float32Array(PLASMA_MAX);
+    for (let i = 0; i < PLASMA_MAX; i++) {
+      angles[i] = (i / PLASMA_MAX) * PI2;
+      speeds[i] = 0.4 + Math.random() * 0.4;
+      radii[i] = 0.8 + Math.random() * 0.3;
+    }
+    s = { angles, speeds, radii };
+    plasmaStates.set(cellKey, s);
+  }
+
+  ctx.save();
+  const orbSize = Math.max(3, radius * 0.06);
+
+  // Draw energy arcs between adjacent orbs
+  if (sr > 25) {
+    ctx.lineWidth = Math.max(2, radius * 0.015);
+    for (let i = 0; i < count; i++) {
+      const j = (i + 1) % count;
+      const ai = s.angles[i] + time * s.speeds[i];
+      const aj = s.angles[j] + time * s.speeds[j];
+      const di = radius * 1.08 * s.radii[i];
+      const dj = radius * 1.08 * s.radii[j];
+      const x1 = Math.cos(ai) * di, y1 = Math.sin(ai) * di;
+      const x2 = Math.cos(aj) * dj, y2 = Math.sin(aj) * dj;
+      const hue = (time * 60 + i * 45) % 360;
+      ctx.strokeStyle = `hsla(${hue}, 100%, 65%, ${0.15 + 0.1 * Math.sin(time * 3 + i)})`;
+      ctx.beginPath();
+      const mx = (x1 + x2) / 2 + Math.sin(time * 4 + i) * radius * 0.1;
+      const my = (y1 + y2) / 2 + Math.cos(time * 4 + i) * radius * 0.1;
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo(mx, my, x2, y2);
+      ctx.stroke();
+    }
+  }
+
+  // Draw plasma orbs
+  for (let i = 0; i < count; i++) {
+    const angle = s.angles[i] + time * s.speeds[i];
+    const dist = radius * 1.08 * s.radii[i];
+    const px = Math.cos(angle) * dist;
+    const py = Math.sin(angle) * dist;
+    const hue = (time * 60 + i * 45) % 360;
+
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(px, py, orbSize * 2.5, 0, PI2);
+    ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.1)`;
+    ctx.fill();
+
+    // Core orb
+    ctx.beginPath();
+    ctx.arc(px, py, orbSize, 0, PI2);
+    ctx.fillStyle = `hsla(${hue}, 100%, 75%, 0.8)`;
+    ctx.fill();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Fairy Dust ─────────────────────────────────────────────
+// Sparkly golden particles with trailing shimmer.
+
+const FAIRY_MAX = 20;
+interface FairyParticle { angle: number; dist: number; speed: number; size: number; phase: number; hue: number }
+const fairyStates = new Map<string, FairyParticle[]>();
+
+registerEffect("fairy_dust", "Fairy Dust", "Sparkling golden particles with magical shimmer", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 8 : Math.min(FAIRY_MAX, Math.floor(radius / 6));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let particles = fairyStates.get(cellKey);
+  if (!particles) {
+    particles = [];
+    for (let i = 0; i < FAIRY_MAX; i++) {
+      particles.push({
+        angle: Math.random() * PI2,
+        dist: 0.95 + Math.random() * 0.4,
+        speed: 0.15 + Math.random() * 0.35,
+        size: 0.5 + Math.random() * 1.5,
+        phase: Math.random() * PI2,
+        hue: 35 + Math.random() * 30, // gold-amber range
+      });
+    }
+    fairyStates.set(cellKey, particles);
+  }
+
+  ctx.save();
+  for (let fi = 0; fi < count; fi++) {
+    const p = particles[fi];
+    const angle = p.angle + time * p.speed;
+    const wobble = Math.sin(time * 2.5 + p.phase) * radius * 0.04;
+    const dist = radius * p.dist + wobble;
+    const px = Math.cos(angle) * dist;
+    const py = Math.sin(angle) * dist;
+    const twinkle = 0.3 + 0.7 * Math.abs(Math.sin(time * 4 + p.phase));
+    const sz = p.size * Math.max(1.5, radius * 0.012);
+
+    // Glow
+    ctx.beginPath();
+    ctx.arc(px, py, sz * 3, 0, PI2);
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${twinkle * 0.12})`;
+    ctx.fill();
+
+    // Sparkle core
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, PI2);
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 85%, ${twinkle * 0.9})`;
+    ctx.fill();
+
+    // Star cross highlight
+    if (sr > 30 && twinkle > 0.7) {
+      ctx.strokeStyle = `hsla(${p.hue}, 100%, 95%, ${(twinkle - 0.7) * 2})`;
+      ctx.lineWidth = Math.max(0.5, sz * 0.4);
+      ctx.beginPath();
+      ctx.moveTo(px - sz * 2, py); ctx.lineTo(px + sz * 2, py);
+      ctx.moveTo(px, py - sz * 2); ctx.lineTo(px, py + sz * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Vortex ─────────────────────────────────────────────────
+// Spinning spiral arms with trailing particles.
+
+registerEffect("vortex", "Vortex", "Spinning spiral arms pulling particles inward", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  const armCount = 3;
+  const dotsPerArm = sr < 30 ? 6 : Math.min(12, Math.floor(radius / 10));
+
+  ctx.save();
+  const spin = time * 1.5;
+
+  for (let a = 0; a < armCount; a++) {
+    const armBase = (a / armCount) * PI2 + spin;
+    for (let d = 0; d < dotsPerArm; d++) {
+      const t = d / dotsPerArm;
+      const spiralAngle = armBase + t * 2.5;
+      const dist = radius * (0.85 + t * 0.45);
+      const px = Math.cos(spiralAngle) * dist;
+      const py = Math.sin(spiralAngle) * dist;
+      const alpha = (1 - t) * 0.7 + 0.1;
+      const sz = Math.max(1.5, radius * 0.02 * (1 - t * 0.5));
+
+      ctx.beginPath();
+      ctx.arc(px, py, sz, 0, PI2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.fill();
+    }
+  }
+
+  // Outer ring glow
+  const pulse = 0.5 + 0.5 * Math.sin(time * 2);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${0.08 + pulse * 0.06})`;
+  ctx.lineWidth = Math.max(4, radius * 0.06);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.05, 0, PI2);
+  ctx.stroke();
+
+  ctx.restore();
+}, "premium");
+
+// ── Toxic ──────────────────────────────────────────────────
+// Bubbling green poison — bubbles rise from the border, wobble, and pop.
+
+const TOXIC_MAX = 16;
+const TOXIC_LIFETIME = 3.0; // seconds until a bubble pops
+const TOXIC_POP_DUR = 0.35; // pop animation duration
+
+interface ToxicBubble {
+  angle: number;       // spawn angle on border
+  birthTime: number;   // time when spawned
+  riseSpeed: number;   // how fast it floats outward (fraction of radius/sec)
+  wobblePhase: number; // phase offset for side-to-side wobble
+  wobbleAmp: number;   // wobble amplitude (radians)
+  size: number;        // base size multiplier
+  lifetime: number;    // per-bubble lifetime (adds variety)
+}
+
+function spawnToxicBubble(time: number): ToxicBubble {
+  return {
+    angle: Math.random() * PI2,
+    birthTime: time - Math.random() * 0.1, // tiny jitter so they don't all sync
+    riseSpeed: 0.06 + Math.random() * 0.06,
+    wobblePhase: Math.random() * PI2,
+    wobbleAmp: 0.02 + Math.random() * 0.04,
+    size: 0.4 + Math.random() * 1.0,
+    lifetime: TOXIC_LIFETIME * (0.7 + Math.random() * 0.6), // 2.1–3.9 s
+  };
+}
+
+const toxicStates = new Map<string, ToxicBubble[]>();
+
+registerEffect("toxic", "Toxic", "Bubbling poison clouds and dripping acid", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 6 : Math.min(TOXIC_MAX, Math.floor(radius / 8));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let bubbles = toxicStates.get(cellKey);
+  if (!bubbles) {
+    bubbles = [];
+    for (let i = 0; i < TOXIC_MAX; i++) {
+      const b = spawnToxicBubble(time);
+      // Stagger initial births so they don't all pop at once
+      b.birthTime = time - Math.random() * b.lifetime;
+      bubbles.push(b);
+    }
+    toxicStates.set(cellKey, bubbles);
+  }
+
+  ctx.save();
+
+  // Toxic mist ring
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.8);
+  ctx.strokeStyle = `rgba(40,220,40,${0.1 + pulse * 0.08})`;
+  ctx.lineWidth = Math.max(6, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.06, 0, PI2);
+  ctx.stroke();
+
+  // Bubbles rising & popping
+  for (let ti = 0; ti < count; ti++) {
+    let b = bubbles[ti];
+    const age = time - b.birthTime;
+
+    // Respawn if past lifetime + pop duration
+    if (age > b.lifetime + TOXIC_POP_DUR) {
+      bubbles[ti] = spawnToxicBubble(time);
+      b = bubbles[ti];
+    }
+
+    const life = b.lifetime;
+    const popping = age > life; // in pop phase?
+    const popProgress = popping ? (age - life) / TOXIC_POP_DUR : 0; // 0→1
+
+    // Rise: bubble floats outward from the border
+    const riseT = Math.min(age, life) / life; // 0→1 over lifetime
+    const riseDist = riseT * b.riseSpeed * radius * 4; // total outward travel
+    const baseDist = radius * 1.0 + riseDist;
+
+    // Wobble side-to-side
+    const wobble = Math.sin(time * 3 + b.wobblePhase) * b.wobbleAmp;
+    const angle = b.angle + wobble;
+
+    const px = Math.cos(angle) * baseDist;
+    const py = Math.sin(angle) * baseDist;
+
+    // Size: grows slightly as it rises, then expands on pop
+    const growFactor = 1 + riseT * 0.3;
+    const popScale = popping ? 1 + popProgress * 1.8 : 1;
+    const sz = b.size * Math.max(2, radius * 0.025) * growFactor * popScale;
+
+    // Alpha: fades in, fades out on pop
+    const fadeIn = Math.min(1, age * 4); // quick fade-in
+    const popAlpha = popping ? Math.max(0, 1 - popProgress) : 1;
+    const alpha = fadeIn * popAlpha * (0.4 + 0.3 * Math.abs(Math.sin(time * 1.5 + b.wobblePhase)));
+
+    if (alpha < 0.01) continue;
+
+    if (popping) {
+      // Pop ring effect — expanding fading ring
+      ctx.beginPath();
+      ctx.arc(px, py, sz, 0, PI2);
+      ctx.strokeStyle = `rgba(100,255,100,${alpha * 0.8})`;
+      ctx.lineWidth = Math.max(1, sz * 0.15 * (1 - popProgress));
+      ctx.stroke();
+      // Inner splatter dots
+      if (sr > 20) {
+        for (let d = 0; d < 4; d++) {
+          const da = b.wobblePhase + d * (PI2 / 4) + popProgress * 1.5;
+          const dd = sz * (0.4 + popProgress * 0.8);
+          ctx.beginPath();
+          ctx.arc(px + Math.cos(da) * dd, py + Math.sin(da) * dd, sz * 0.12 * (1 - popProgress), 0, PI2);
+          ctx.fillStyle = `rgba(60,255,60,${alpha * 0.6})`;
+          ctx.fill();
+        }
+      }
+    } else {
+      // Normal bubble body
+      ctx.beginPath();
+      ctx.arc(px, py, sz, 0, PI2);
+      ctx.fillStyle = `rgba(60,255,60,${alpha * 0.25})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(80,255,80,${alpha * 0.65})`;
+      ctx.lineWidth = Math.max(1, sz * 0.2);
+      ctx.stroke();
+
+      // Highlight spot
+      if (sr > 25) {
+        ctx.beginPath();
+        ctx.arc(px - sz * 0.3, py - sz * 0.3, sz * 0.25, 0, PI2);
+        ctx.fillStyle = `rgba(200,255,200,${alpha * 0.5})`;
+        ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Crystal ────────────────────────────────────────────────
+// Rotating gem facets reflecting prismatic light.
+
+registerEffect("crystal", "Crystal", "Rotating gemstone facets with prismatic reflections", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const facetCount = 10; // fixed count so positions don't jump on resize
+
+  ctx.save();
+  const spin = time * 0.4;
+
+  for (let i = 0; i < facetCount; i++) {
+    const baseAngle = (i / facetCount) * PI2 + spin;
+    const dist = radius * 1.05;
+    const px = Math.cos(baseAngle) * dist;
+    const py = Math.sin(baseAngle) * dist;
+    const sz = Math.max(4, radius * 0.07);
+    const hue = (i * (360 / facetCount) + time * 40) % 360;
+    const shimmer = 0.4 + 0.6 * Math.abs(Math.sin(time * 3 + i * 1.5));
+
+    // Draw diamond shape
+    ctx.beginPath();
+    ctx.moveTo(px + Math.cos(baseAngle) * sz, py + Math.sin(baseAngle) * sz);
+    ctx.lineTo(px + Math.cos(baseAngle + Math.PI / 2) * sz * 0.5, py + Math.sin(baseAngle + Math.PI / 2) * sz * 0.5);
+    ctx.lineTo(px - Math.cos(baseAngle) * sz * 0.4, py - Math.sin(baseAngle) * sz * 0.4);
+    ctx.lineTo(px + Math.cos(baseAngle - Math.PI / 2) * sz * 0.5, py + Math.sin(baseAngle - Math.PI / 2) * sz * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${shimmer * 0.6})`;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${hue}, 90%, 85%, ${shimmer * 0.8})`;
+    ctx.lineWidth = Math.max(1, sz * 0.1);
+    ctx.stroke();
+  }
+
+  // Inner glow ring
+  const ringHue = (time * 50) % 360;
+  ctx.strokeStyle = `hsla(${ringHue}, 80%, 70%, 0.12)`;
+  ctx.lineWidth = Math.max(3, radius * 0.04);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.02, 0, PI2);
+  ctx.stroke();
+
+  ctx.restore();
+}, "premium");
+
+// ── Solar Flare ────────────────────────────────────────────
+// Fiery solar prominences erupting from the cell surface.
+
+const FLARE_MAX = 8;
+const flareStates = new Map<string, { angles: Float32Array; heights: Float32Array; phases: Float32Array; widths: Float32Array }>();
+
+registerEffect("solar_flare", "Solar Flare", "Erupting solar prominences and coronal arcs", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 4 : Math.min(FLARE_MAX, Math.floor(radius / 14));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let s = flareStates.get(cellKey);
+  if (!s) {
+    const angles = new Float32Array(FLARE_MAX);
+    const heights = new Float32Array(FLARE_MAX);
+    const phases = new Float32Array(FLARE_MAX);
+    const widths = new Float32Array(FLARE_MAX);
+    for (let i = 0; i < FLARE_MAX; i++) {
+      angles[i] = (i / FLARE_MAX) * PI2 + Math.random() * 0.3;
+      heights[i] = 0.15 + Math.random() * 0.25;
+      phases[i] = Math.random() * PI2;
+      widths[i] = 0.08 + Math.random() * 0.08;
+    }
+    s = { angles, heights, phases, widths };
+    flareStates.set(cellKey, s);
+  }
+
+  ctx.save();
+
+  // Corona glow
+  const coronaPulse = 0.5 + 0.5 * Math.sin(time * 1.2);
+  ctx.strokeStyle = `rgba(255,180,40,${0.08 + coronaPulse * 0.06})`;
+  ctx.lineWidth = Math.max(6, radius * 0.12);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.05, 0, PI2);
+  ctx.stroke();
+
+  // Prominences
+  for (let i = 0; i < count; i++) {
+    const angle = s.angles[i] + Math.sin(time * 0.3 + s.phases[i]) * 0.1;
+    const height = s.heights[i] * radius * (0.7 + 0.3 * Math.sin(time * 1.5 + s.phases[i]));
+    const width = s.widths[i] * radius;
+    const baseX = Math.cos(angle) * radius;
+    const baseY = Math.sin(angle) * radius;
+    const tipX = Math.cos(angle) * (radius + height);
+    const tipY = Math.sin(angle) * (radius + height);
+    const perpX = -Math.sin(angle);
+    const perpY = Math.cos(angle);
+
+    const alpha = 0.4 + 0.3 * Math.sin(time * 2 + s.phases[i]);
+
+    ctx.beginPath();
+    ctx.moveTo(baseX - perpX * width, baseY - perpY * width);
+    ctx.quadraticCurveTo(
+      tipX + perpX * width * 0.5 * Math.sin(time * 3 + i),
+      tipY + perpY * width * 0.5 * Math.sin(time * 3 + i),
+      tipX, tipY
+    );
+    ctx.quadraticCurveTo(
+      tipX - perpX * width * 0.5 * Math.sin(time * 3 + i),
+      tipY - perpY * width * 0.5 * Math.sin(time * 3 + i),
+      baseX + perpX * width, baseY + perpY * width
+    );
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255,${140 + Math.floor(80 * Math.sin(time + i))},30,${alpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Void Rift ──────────────────────────────────────────────
+// Purple interdimensional cracks/tears radiating outward.
+
+registerEffect("void_rift", "Void Rift", "Interdimensional cracks tearing through space", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const crackCount = 8; // fixed count so cracks don't jump on resize
+
+  ctx.save();
+
+  // Void aura
+  const auraPulse = 0.5 + 0.5 * Math.sin(time * 1.5);
+  ctx.strokeStyle = `rgba(140,40,220,${0.1 + auraPulse * 0.08})`;
+  ctx.lineWidth = Math.max(6, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.04, 0, PI2);
+  ctx.stroke();
+
+  // Cracks
+  ctx.lineCap = "round";
+  for (let i = 0; i < crackCount; i++) {
+    const baseAngle = (i / crackCount) * PI2 + time * 0.2;
+    const segments = sr < 40 ? 3 : 5;
+    const crackAlpha = 0.5 + 0.4 * Math.sin(time * 2.5 + i * 1.8);
+
+    // Main crack line (jagged)
+    ctx.strokeStyle = `rgba(180,80,255,${crackAlpha})`;
+    ctx.lineWidth = Math.max(2, radius * 0.02);
+    ctx.beginPath();
+    let cx = Math.cos(baseAngle) * radius;
+    let cy = Math.sin(baseAngle) * radius;
+    ctx.moveTo(cx, cy);
+    for (let s = 0; s < segments; s++) {
+      const t = (s + 1) / segments;
+      const len = radius * 0.35;
+      const jitter = Math.sin(time * 5 + i * 3 + s * 2) * radius * 0.04;
+      cx = Math.cos(baseAngle + jitter * 0.02) * (radius + len * t);
+      cy = Math.sin(baseAngle + jitter * 0.02) * (radius + len * t) + jitter;
+      ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // Glow around crack
+    ctx.strokeStyle = `rgba(160,60,255,${crackAlpha * 0.25})`;
+    ctx.lineWidth = Math.max(5, radius * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(baseAngle) * radius, Math.sin(baseAngle) * radius);
+    ctx.lineTo(cx, cy);
+    ctx.stroke();
+
+    // Energy particles at crack tips
+    if (sr > 30) {
+      const sparkAlpha = 0.5 + 0.5 * Math.sin(time * 6 + i);
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(2, radius * 0.02), 0, PI2);
+      ctx.fillStyle = `rgba(220,160,255,${sparkAlpha})`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Autumn ─────────────────────────────────────────────────
+// Falling golden/red/orange leaves drifting around the cell.
+
+const AUTUMN_MAX = 12;
+interface AutumnLeaf { angle: number; dist: number; rot: number; rotSpeed: number; drift: number; size: number; variant: number }
+const autumnStates = new Map<string, AutumnLeaf[]>();
+
+function drawLeafShape(ctx: CanvasRenderingContext2D, sz: number, variant: number) {
+  // Simple leaf silhouette using bezier curves
+  const colors = [
+    ["rgba(220,160,30,0.8)", "rgba(180,120,20,0.6)"],   // gold
+    ["rgba(210,60,30,0.8)", "rgba(170,40,20,0.6)"],     // red
+    ["rgba(230,120,20,0.8)", "rgba(190,90,15,0.6)"],    // orange
+    ["rgba(180,50,50,0.8)", "rgba(140,30,30,0.6)"],     // crimson
+  ];
+  const [fill, stroke] = colors[variant % colors.length];
+
+  ctx.beginPath();
+  ctx.moveTo(0, -sz);
+  ctx.bezierCurveTo(sz * 0.8, -sz * 0.5, sz * 0.6, sz * 0.3, 0, sz);
+  ctx.bezierCurveTo(-sz * 0.6, sz * 0.3, -sz * 0.8, -sz * 0.5, 0, -sz);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = sz * 0.1;
+  ctx.stroke();
+
+  // Leaf vein
+  ctx.beginPath();
+  ctx.moveTo(0, -sz * 0.8);
+  ctx.lineTo(0, sz * 0.8);
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = sz * 0.08;
+  ctx.stroke();
+}
+
+registerEffect("autumn", "Autumn", "Falling golden and crimson leaves", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 5 : Math.min(AUTUMN_MAX, Math.floor(radius / 10));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let leaves = autumnStates.get(cellKey);
+  if (!leaves) {
+    leaves = [];
+    for (let i = 0; i < AUTUMN_MAX; i++) {
+      leaves.push({
+        angle: Math.random() * PI2,
+        dist: 0.95 + Math.random() * 0.35,
+        rot: Math.random() * PI2,
+        rotSpeed: 0.5 + Math.random() * 1.5,
+        drift: 0.1 + Math.random() * 0.2,
+        size: 0.6 + Math.random() * 0.8,
+        variant: Math.floor(Math.random() * 4),
+      });
+    }
+    autumnStates.set(cellKey, leaves);
+  }
+
+  ctx.save();
+  for (let li = 0; li < count; li++) {
+    const leaf = leaves[li];
+    const angle = leaf.angle + time * leaf.drift;
+    const wobble = Math.sin(time * 1.5 + leaf.rot) * radius * 0.03;
+    const dist = radius * leaf.dist + wobble;
+    const px = Math.cos(angle) * dist;
+    const py = Math.sin(angle) * dist;
+    const sz = leaf.size * Math.max(3, radius * 0.04);
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(leaf.rot + time * leaf.rotSpeed);
+    drawLeafShape(ctx, sz, leaf.variant);
+    ctx.restore();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Bubble ─────────────────────────────────────────────────
+// Floating translucent soap bubbles.
+
+const BUBBLE_MAX = 14;
+interface SoapBubble { angle: number; dist: number; size: number; speed: number; phase: number; hueShift: number }
+const bubbleStates = new Map<string, SoapBubble[]>();
+
+registerEffect("bubble", "Bubble", "Floating iridescent soap bubbles", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const count = sr < 30 ? 5 : Math.min(BUBBLE_MAX, Math.floor(radius / 9));
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let bubbles = bubbleStates.get(cellKey);
+  if (!bubbles) {
+    bubbles = [];
+    for (let i = 0; i < BUBBLE_MAX; i++) {
+      bubbles.push({
+        angle: Math.random() * PI2,
+        dist: 0.92 + Math.random() * 0.4,
+        size: 0.5 + Math.random() * 1.3,
+        speed: 0.08 + Math.random() * 0.15,
+        phase: Math.random() * PI2,
+        hueShift: Math.random() * 360,
+      });
+    }
+    bubbleStates.set(cellKey, bubbles);
+  }
+
+  ctx.save();
+  for (let bi = 0; bi < count; bi++) {
+    const b = bubbles[bi];
+    const angle = b.angle + time * b.speed;
+    const float = Math.sin(time * 1.5 + b.phase) * radius * 0.03;
+    const dist = radius * b.dist + float;
+    const px = Math.cos(angle) * dist;
+    const py = Math.sin(angle) * dist;
+    const sz = b.size * Math.max(3, radius * 0.035);
+    const hue = (b.hueShift + time * 30) % 360;
+
+    // Bubble body
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, PI2);
+    ctx.fillStyle = `hsla(${hue}, 60%, 70%, 0.12)`;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${hue}, 70%, 80%, 0.45)`;
+    ctx.lineWidth = Math.max(1, sz * 0.12);
+    ctx.stroke();
+
+    // Specular highlight
+    if (sr > 25) {
+      ctx.beginPath();
+      ctx.arc(px - sz * 0.3, py - sz * 0.35, sz * 0.3, 0, PI2);
+      ctx.fillStyle = `rgba(255,255,255,0.35)`;
+      ctx.fill();
+      // Small secondary highlight
+      ctx.beginPath();
+      ctx.arc(px + sz * 0.15, py + sz * 0.2, sz * 0.12, 0, PI2);
+      ctx.fillStyle = `rgba(255,255,255,0.2)`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Pulse Wave ─────────────────────────────────────────────
+// Expanding concentric energy ripples radiating outward.
+
+registerEffect("pulse_wave", "Pulse Wave", "Expanding energy ripples radiating from your cell", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  const waveCount = sr < 30 ? 2 : 4;
+
+  ctx.save();
+
+  for (let i = 0; i < waveCount; i++) {
+    // Each wave has a different phase so they're staggered
+    const phase = (time * 0.8 + i * (1 / waveCount)) % 1;
+    const waveRadius = radius * (1.0 + phase * 0.5);
+    const alpha = (1 - phase) * 0.4;
+    const width = Math.max(2, radius * 0.02 * (1 - phase * 0.5));
+
+    ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.arc(0, 0, waveRadius, 0, PI2);
+    ctx.stroke();
+
+    // Second ring — slightly wider and dimmer for depth
+    if (sr > 30) {
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha * 0.3})`;
+      ctx.lineWidth = width * 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, waveRadius, 0, PI2);
+      ctx.stroke();
+    }
+  }
+
+  // Core shimmer
+  const corePulse = 0.5 + 0.5 * Math.sin(time * 4);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${0.06 + corePulse * 0.06})`;
+  ctx.lineWidth = Math.max(4, radius * 0.06);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.01, 0, PI2);
+  ctx.stroke();
+
+  ctx.restore();
+}, "premium");
+
 // ── Cleanup ────────────────────────────────────────────────
 // Remove per-cell effect state for cells that no longer exist.
 
 export function cleanupEffectState(activeCellIds: Set<number>) {
-  const maps: Map<string, unknown>[] = [starStates, boltStates, petalStates, frostStates, smokeStates, flameStates];
+  const maps: Map<string, unknown>[] = [starStates, boltStates, petalStates, frostStates, smokeStates, flameStates, plasmaStates, fairyStates, toxicStates, flareStates, autumnStates, bubbleStates];
   for (const m of maps) {
     for (const key of m.keys()) {
       const id = parseInt(key, 10);
