@@ -12,7 +12,7 @@ Built with **Vite**, **React 19**, and vanilla **Canvas2D** rendering — no gam
 - **Black Hole** effect with gravitational warping of grid, cells, food, viruses, and border (spaghettification)
 - Effect picker modal with live preview
 - **Multibox** — control two independent players with Tab-key switching
-- **Token shop** — purchase skin/effect tokens with Beans Bank currency
+- **Shop** — purchase skin/effect tokens with Beans Bank currency
 - **Daily gift** claim UI
 - Token reveal animations (skin tokens + effect tokens)
 - Top Users (all-time) and live Leaderboard tabs
@@ -89,7 +89,7 @@ sigmally-client/
 │   │
 │   ├── components/
 │   │   ├── Lobby.tsx            # Spawn form, skin/effect selectors, Top Users + Leaderboard tabs
-│   │   ├── Shop.tsx             # Token shop (3 sections: skin/effect/bundles)
+│   │   ├── Shop.tsx             # Shop (3 sections: skin/effect/bundles)
 │   │   ├── DailyGift.tsx        # Daily free gift claim UI
 │   │   ├── Chat.tsx             # In-game chat overlay
 │   │   ├── HUD.tsx              # Score, ping, leaderboard, level-up

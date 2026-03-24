@@ -10,6 +10,7 @@ import {
   CLIENT_MULTIBOX_SWITCH,
   CLIENT_DIRECTION_LOCK,
   CLIENT_FREEZE_POSITION,
+  CLIENT_USE_POWERUP,
   CLIENT_CHAT,
   CLIENT_SPECTATE,
   CLIENT_SPECTATOR_CMD,
@@ -27,6 +28,7 @@ import {
   SERVER_CLAN_CHAT,
   SERVER_CLAN_POSITIONS,
   SERVER_BATTLE_ROYALE,
+  SERVER_POWERUP_STATE,
   SERVER_SPAWN_RESULT,
   SERVER_PING_REPLY,
 } from "./opcodes";
@@ -131,6 +133,7 @@ export interface ConnectionCallbacks {
   onClanChat?: (msg: ChatMessage) => void;
   onClanPositions?: (members: ClanMemberPosition[]) => void;
   onBattleRoyale?: (br: BattleRoyaleState) => void;
+  onPowerupState?: (inventory: Record<string, number>) => void;
 }
 
 // ── Connection ───────────────────────────────────────────────
@@ -302,6 +305,15 @@ export class Connection {
     this.ws.send(buf.buffer);
   }
 
+  /** Use a charge of a powerup by slot number (1-6). */
+  sendUsePowerup(slot: number) {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(2);
+    buf[0] = this.shuffle.encode(CLIENT_USE_POWERUP);
+    buf[1] = slot;
+    this.ws.send(buf.buffer);
+  }
+
   private sendPing() {
     if (!this.shuffle || !this.ws) return;
     this.pingTimestamp = performance.now();
@@ -390,6 +402,9 @@ export class Connection {
         break;
       case SERVER_BATTLE_ROYALE:
         this.parseBattleRoyale(r);
+        break;
+      case SERVER_POWERUP_STATE:
+        this.parsePowerupState(r);
         break;
       case SERVER_SPAWN_RESULT:
         this.cb.onSpawnResult?.(r.readUint8() === 1);
@@ -533,6 +548,27 @@ export class Connection {
       state, playersAlive, countdown, timeRemaining,
       zoneCX, zoneCY, zoneRadius, winnerName,
     });
+  }
+
+  private parsePowerupState(r: Reader) {
+    const count = r.readUint8();
+    const inventory: Record<string, number> = {};
+    for (let i = 0; i < count; i++) {
+      const typeLen = r.readUint8();
+      let powerupType = "";
+      if (typeLen > 0) {
+        const bytes = new Uint8Array(typeLen);
+        for (let j = 0; j < typeLen; j++) {
+          bytes[j] = r.readUint8();
+        }
+        powerupType = new TextDecoder().decode(bytes);
+      }
+      const charges = r.readUint8();
+      if (powerupType && charges > 0) {
+        inventory[powerupType] = charges;
+      }
+    }
+    this.cb.onPowerupState?.(inventory);
   }
 
   // ── Internal ─────────────────────────────────────────────

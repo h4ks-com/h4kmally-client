@@ -852,8 +852,18 @@
 }
 
 /* Top users table */
-.top-users-table td {
+.top-users-table td,
+.top-users-table th {
   font-size: 12px;
+}
+
+.top-users-table thead th {
+  font-size: 10px;
+  color: #888;
+  font-weight: 600;
+  text-align: left;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .top-users-table .top-rank {
@@ -864,7 +874,7 @@
 }
 
 .top-users-table .top-name {
-  max-width: 100px;
+  max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -873,6 +883,14 @@
 .top-users-table .top-points {
   text-align: right;
   color: #6c5ce7;
+  font-weight: 600;
+  font-size: 11px;
+  padding-right: 4px;
+}
+
+.top-users-table .top-score {
+  text-align: right;
+  color: #e17055;
   font-weight: 600;
   font-size: 11px;
   padding-right: 4px;
@@ -1121,6 +1139,52 @@
 
 .skin-picker-clear:hover {
   background: #e2e8f0;
+}
+
+/* ── Custom skin upload ── */
+.custom-skin-upload {
+  margin-top: 8px;
+  text-align: center;
+}
+.custom-skin-upload-btn {
+  width: 100%;
+  height: 36px;
+  border: 2px dashed rgba(231, 76, 60, 0.5);
+  border-radius: 6px;
+  background: rgba(231, 76, 60, 0.08);
+  color: #e74c3c;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.custom-skin-upload-btn:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: rgba(231, 76, 60, 0.8);
+}
+.custom-skin-upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.custom-skin-shop-btn {
+  width: 100%;
+  height: 34px;
+  border: 1px solid rgba(155, 89, 182, 0.4);
+  border-radius: 6px;
+  background: rgba(155, 89, 182, 0.1);
+  color: #9b59b6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.custom-skin-shop-btn:hover {
+  background: rgba(155, 89, 182, 0.2);
+}
+.custom-skin-error {
+  color: #e74c3c;
+  font-size: 11px;
+  margin-top: 4px;
 }
 
 /* ── Scrollbar ── */

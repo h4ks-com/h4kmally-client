@@ -17,6 +17,17 @@ interface UserEntry {
   isAdmin?: boolean;
   bannedUntil?: number;
   banReason?: string;
+  clanId?: string;
+  unlockedSkins?: string[];
+  skinTokens?: Record<string, number>;
+  unlockedEffects?: string[];
+  effectTokens?: Record<string, number>;
+  dailyState?: {
+    dateKey: string;
+    goals: { type: string; label: string; description: string; target: number; progress: number; completed: boolean }[];
+    powerupGranted: boolean;
+    powerups?: Record<string, number>;
+  };
 }
 
 interface OnlinePlayer {
@@ -62,6 +73,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [uploadRarity, setUploadRarity] = useState("common");
   const [uploadMinLevel, setUploadMinLevel] = useState(1);
   const [brStatus, setBrStatus] = useState<{ state: number; playersAlive: number; timeRemaining: number } | null>(null);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   const api = useCallback(
     async (endpoint: string, method = "GET", body?: Record<string, unknown>) => {
@@ -304,6 +316,31 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     }
   };
 
+  const POWERUPS = [
+    { type: "virus_layer", label: "Virus Layer", charges: 5 },
+    { type: "speed_boost", label: "Speed Boost", charges: 3 },
+    { type: "ghost_mode", label: "Ghost Mode", charges: 1 },
+    { type: "mass_magnet", label: "Mass Magnet", charges: 2 },
+    { type: "freeze_splitter", label: "Freeze Splitter", charges: 3 },
+    { type: "recombine", label: "Recombine", charges: 1 },
+  ];
+
+  const handleGrantPowerup = async (sub: string, powerup: string) => {
+    if (!sub) {
+      showMsg("error", "Only signed-in users can receive powerups");
+      return;
+    }
+    const def = POWERUPS.find((p) => p.type === powerup);
+    if (!def) return;
+    try {
+      await api("grant-powerup", "POST", { sub, powerup, charges: def.charges });
+      showMsg("success", `Granted ${def.label} to player`);
+      if (tab === "users") fetchUsers();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
   return (
     <div className="admin-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="admin-panel">
@@ -396,6 +433,27 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                       <td style={{ fontFamily: "monospace", fontSize: 12 }}>{p.ip}</td>
                       <td>
                         {p.userSub && (
+                          <select
+                            className="admin-powerup-select"
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleGrantPowerup(p.userSub, e.target.value);
+                                e.target.value = "";
+                              }
+                            }}
+                          >
+                            <option value="" disabled>
+                              Grant Powerup…
+                            </option>
+                            {POWERUPS.map((pu) => (
+                              <option key={pu.type} value={pu.type}>
+                                {pu.label} ({pu.charges})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {p.userSub && (
                           <button className="admin-btn ban" onClick={() => handleBanUser(p.userSub)}>
                             Ban Account
                           </button>
@@ -432,62 +490,161 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                     <th>Points</th>
                     <th>Top Score</th>
                     <th>Games</th>
+                    <th>Clan</th>
+                    <th>Powerup</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((u) => (
-                    <tr key={u.sub}>
-                      <td>
-                        {u.picture && (
-                          <img
-                            src={u.picture}
-                            alt=""
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: "50%",
-                              marginRight: 6,
-                              verticalAlign: "middle",
+                    <>
+                      <tr key={u.sub} className={expandedUser === u.sub ? "expanded-row" : ""} onClick={() => setExpandedUser(expandedUser === u.sub ? null : u.sub)} style={{ cursor: "pointer" }}>
+                        <td>
+                          {u.picture && (
+                            <img
+                              src={u.picture}
+                              alt=""
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: "50%",
+                                marginRight: 6,
+                                verticalAlign: "middle",
+                              }}
+                            />
+                          )}
+                          {u.name || u.sub}
+                        </td>
+                        <td>{u.points.toLocaleString()}</td>
+                        <td>{u.topScore.toLocaleString()}</td>
+                        <td>{u.gamesPlayed}</td>
+                        <td>{u.clanId ? <span className="badge online">{u.clanId}</span> : <span style={{ color: "#555" }}>—</span>}</td>
+                        <td>
+                          {u.dailyState?.powerups && Object.keys(u.dailyState.powerups).length > 0 ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                              {Object.entries(u.dailyState.powerups).map(([type, charges]) => (
+                                <span key={type} className="badge powerup" style={{ fontSize: 10 }}>
+                                  {POWERUPS.find((p) => p.type === type)?.label || type} ×{charges}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: "#555" }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          {u.isAdmin && <span className="badge admin">Admin</span>}{" "}
+                          {isBanned(u) && (
+                            <span className="badge banned" title={u.banReason}>
+                              Banned
+                            </span>
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            className="admin-powerup-select"
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleGrantPowerup(u.sub, e.target.value);
+                                e.target.value = "";
+                              }
                             }}
-                          />
-                        )}
-                        {u.name || u.sub}
-                      </td>
-                      <td>{u.points.toLocaleString()}</td>
-                      <td>{u.topScore.toLocaleString()}</td>
-                      <td>{u.gamesPlayed}</td>
-                      <td>
-                        {u.isAdmin && <span className="badge admin">Admin</span>}{" "}
-                        {isBanned(u) && (
-                          <span className="badge banned" title={u.banReason}>
-                            Banned
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          className="admin-btn toggle-admin"
-                          onClick={() => handleToggleAdmin(u.sub, !!u.isAdmin)}
-                        >
-                          {u.isAdmin ? "Remove Admin" : "Make Admin"}
-                        </button>
-                        {isBanned(u) ? (
-                          <button className="admin-btn unban" onClick={() => handleUnbanUser(u.sub)}>
-                            Unban
+                          >
+                            <option value="" disabled>
+                              Grant Powerup…
+                            </option>
+                            {POWERUPS.map((pu) => (
+                              <option key={pu.type} value={pu.type}>
+                                {pu.label} ({pu.charges})
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="admin-btn toggle-admin"
+                            onClick={() => handleToggleAdmin(u.sub, !!u.isAdmin)}
+                          >
+                            {u.isAdmin ? "Remove Admin" : "Make Admin"}
                           </button>
-                        ) : (
-                          <button className="admin-btn ban" onClick={() => handleBanUser(u.sub)}>
-                            Ban
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                          {isBanned(u) ? (
+                            <button className="admin-btn unban" onClick={() => handleUnbanUser(u.sub)}>
+                              Unban
+                            </button>
+                          ) : (
+                            <button className="admin-btn ban" onClick={() => handleBanUser(u.sub)}>
+                              Ban
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedUser === u.sub && (
+                        <tr key={u.sub + "-detail"} className="user-detail-row">
+                          <td colSpan={8}>
+                            <div className="user-detail">
+                              <div className="user-detail-grid">
+                                <div className="user-detail-section">
+                                  <h4>Account</h4>
+                                  <div className="detail-item"><span className="detail-label">Sub</span><span className="detail-value mono">{u.sub}</span></div>
+                                  <div className="detail-item"><span className="detail-label">Clan</span><span className="detail-value">{u.clanId || "None"}</span></div>
+                                </div>
+                                <div className="user-detail-section">
+                                  <h4>Skins</h4>
+                                  {u.unlockedSkins && u.unlockedSkins.length > 0 ? (
+                                    <div className="detail-tags">
+                                      {u.unlockedSkins.map((s) => <span key={s} className="detail-tag skin">{s}</span>)}
+                                    </div>
+                                  ) : <span className="detail-empty">None unlocked</span>}
+                                  {u.skinTokens && Object.keys(u.skinTokens).length > 0 && (
+                                    <div className="detail-item" style={{ marginTop: 4 }}>
+                                      <span className="detail-label">Tokens</span>
+                                      <span className="detail-value">{Object.entries(u.skinTokens).map(([k, v]) => `${k}: ${v}`).join(", ")}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="user-detail-section">
+                                  <h4>Effects</h4>
+                                  {u.unlockedEffects && u.unlockedEffects.length > 0 ? (
+                                    <div className="detail-tags">
+                                      {u.unlockedEffects.map((e) => <span key={e} className="detail-tag effect">{e}</span>)}
+                                    </div>
+                                  ) : <span className="detail-empty">None unlocked</span>}
+                                  {u.effectTokens && Object.keys(u.effectTokens).length > 0 && (
+                                    <div className="detail-item" style={{ marginTop: 4 }}>
+                                      <span className="detail-label">Tokens</span>
+                                      <span className="detail-value">{Object.entries(u.effectTokens).map(([k, v]) => `${k}: ${v}`).join(", ")}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="user-detail-section">
+                                  <h4>Powerups</h4>
+                                  {u.dailyState?.powerups && Object.keys(u.dailyState.powerups).length > 0 ? (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                      {Object.entries(u.dailyState.powerups).map(([type, charges]) => (
+                                        <div key={type} className="detail-item">
+                                          <span className="detail-label">{POWERUPS.find((p) => p.type === type)?.label || type}</span>
+                                          <span className="detail-value">{charges} charges</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : <span className="detail-empty">No powerups</span>}
+                                  {u.dailyState && (
+                                    <div className="detail-item" style={{ marginTop: 4 }}>
+                                      <span className="detail-label">Daily goals</span>
+                                      <span className="detail-value">{u.dailyState.goals.filter((g) => g.completed).length}/3 complete ({u.dailyState.dateKey})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: "center", padding: 20, color: "#666" }}>
+                      <td colSpan={8} style={{ textAlign: "center", padding: 20, color: "#666" }}>
                         No registered users
                       </td>
                     </tr>

@@ -250,3 +250,114 @@
 .admin-btn-br-stop:hover:not(:disabled) {
   background: #777 !important;
 }
+
+.admin-powerup-select {
+  background: #1a1a2e;
+  color: #b39ddb;
+  border: 1px solid #7c4dff;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+.admin-powerup-select:hover {
+  border-color: #b388ff;
+}
+
+/* ── Expanded user detail row ── */
+
+.expanded-row td {
+  border-bottom: none !important;
+  background: rgba(255,255,255,0.02);
+}
+
+.user-detail-row td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+
+.user-detail {
+  background: rgba(20, 20, 40, 0.6);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 12px 16px;
+  margin: 0 4px 8px;
+}
+
+.user-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.user-detail-section h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+}
+
+.detail-item {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.detail-label {
+  color: #999;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  color: #ddd;
+  word-break: break-all;
+}
+
+.detail-value.mono {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 11px;
+}
+
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detail-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.detail-tag.skin {
+  background: rgba(33, 150, 243, 0.15);
+  color: #64b5f6;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.detail-tag.effect {
+  background: rgba(156, 39, 176, 0.15);
+  color: #ce93d8;
+  border: 1px solid rgba(156, 39, 176, 0.3);
+}
+
+.detail-empty {
+  color: #555;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.badge.powerup {
+  background: rgba(124, 77, 255, 0.2);
+  color: #b388ff;
+  border: 1px solid rgba(124, 77, 255, 0.4);
+}

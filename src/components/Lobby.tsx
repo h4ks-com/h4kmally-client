@@ -4,6 +4,7 @@ import type { UserProfile } from "../App";
 import type { Settings } from "../game/settings";
 import { TokenReveal } from "./TokenReveal";
 import { EffectTokenReveal } from "./EffectTokenReveal";
+import { DailyGoals } from "./DailyGoals";
 import { setSkinFiles, getSkinFile } from "../skinFileMap";
 import { CURSOR_LIST, renderCursorToDataURL } from "../game/cursors";
 import "./Lobby.css";
@@ -35,6 +36,7 @@ interface TopUserEntry {
   name: string;
   points: number;
   level: number;
+  topScore?: number;
 }
 
 interface LobbyProps {
@@ -128,12 +130,16 @@ export function Lobby({
   const [effectEntries, setEffectEntries] = useState<EffectAccessEntry[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [showEffectPicker, setShowEffectPicker] = useState(false);
-  const [lbTab, setLbTab] = useState<"top" | "lb">("top");
+  const [lbTab, setLbTab] = useState<"top" | "lb" | "goals">("top");
   const [topUsers, setTopUsers] = useState<TopUserEntry[]>([]);
   const [skinCategoryTab, setSkinCategoryTab] = useState<string>("all");
   const [effectCategoryTab, setEffectCategoryTab] = useState<string>("all");
   const [showCursorPicker, setShowCursorPicker] = useState(false);
   const cursorPreviewCache = useRef<Map<string, string>>(new Map());
+  const [customSkinSlots, setCustomSkinSlots] = useState(0);
+  const [uploadingSkin, setUploadingSkin] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const skinFileInput = useRef<HTMLInputElement>(null);
 
   // Load skins with access info (on mount and whenever picker is opened)
   useEffect(() => {
@@ -147,6 +153,9 @@ export function Lobby({
         if (data.skins) {
           setSkins(data.skins);
           setSkinFiles(data.skins);
+        }
+        if (typeof data.customSkinSlots === "number") {
+          setCustomSkinSlots(data.customSkinSlots);
         }
       })
       .catch(() => {});
@@ -197,6 +206,35 @@ export function Lobby({
     setSkin(skinName);
     setShowPicker(false);
   }, []);
+
+  const handleCustomSkinUpload = useCallback(async (file: File) => {
+    if (!serverBaseUrl || !sessionToken) return;
+    setUploadingSkin(true);
+    setUploadError(null);
+    const skinName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("name", skinName);
+    try {
+      const resp = await fetch(
+        `${serverBaseUrl}/api/skins/upload?session=${encodeURIComponent(sessionToken)}`,
+        { method: "POST", body: form }
+      );
+      const data = await resp.json();
+      if (!resp.ok) {
+        setUploadError(data.error || "Upload failed");
+      } else {
+        // Refresh skins list to show the new custom skin
+        setCustomSkinSlots(s => Math.max(0, s - 1));
+        setShowPicker(false);
+        setTimeout(() => setShowPicker(true), 100);
+      }
+    } catch {
+      setUploadError("Upload failed");
+    } finally {
+      setUploadingSkin(false);
+    }
+  }, [serverBaseUrl, sessionToken]);
 
   return (
     <div className="lobby-overlay" onKeyDown={handleKeyDown}>
@@ -285,7 +323,7 @@ export function Lobby({
 
           {isAuthenticated && (
             <button className="btn-shop" onClick={onOpenShop}>
-              🛒 Token Shop
+              🛒 Shop
             </button>
           )}
 
@@ -417,6 +455,14 @@ export function Lobby({
             >
               Top Users
             </button>
+            {isAuthenticated && (
+              <button
+                className={`lb-tab ${lbTab === "goals" ? "active" : ""}`}
+                onClick={() => setLbTab("goals")}
+              >
+                Goals
+              </button>
+            )}
           </div>
           <div className="lb-inner">
             {lbTab === "lb" && (
@@ -443,12 +489,22 @@ export function Lobby({
                   <div className="lb-empty">No data yet</div>
                 ) : (
                   <table className="lb-table top-users-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>XP</th>
+                        <th>Top</th>
+                        <th>Lv</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {topUsers.map((user, i) => (
                         <tr key={i}>
                           <td className="top-rank">{i + 1}.</td>
                           <td className="top-name">{user.name}</td>
                           <td className="top-points">{user.points.toLocaleString()}</td>
+                          <td className="top-score">{(user.topScore ?? 0).toLocaleString()}</td>
                           <td className="top-level">Lv{user.level}</td>
                         </tr>
                       ))}
@@ -456,6 +512,12 @@ export function Lobby({
                   </table>
                 )}
               </>
+            )}
+            {lbTab === "goals" && isAuthenticated && serverBaseUrl && sessionToken && (
+              <DailyGoals
+                serverBaseUrl={serverBaseUrl}
+                sessionToken={sessionToken}
+              />
             )}
           </div>
 
@@ -486,7 +548,7 @@ export function Lobby({
 
             {/* Category tabs */}
             <div className="skin-category-tabs">
-              {["all", "free", "level", "premium"].map((cat) => {
+              {["all", "free", "level", "premium", "custom"].map((cat) => {
                 const count = cat === "all"
                   ? skins.length
                   : skins.filter((s) => s.category === cat).length;
@@ -496,7 +558,7 @@ export function Lobby({
                     className={`skin-cat-tab ${skinCategoryTab === cat ? "active" : ""}`}
                     onClick={() => setSkinCategoryTab(cat)}
                   >
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)} ({count})
+                    {cat === "custom" ? "🖼️ Custom" : cat.charAt(0).toUpperCase() + cat.slice(1)} ({count})
                   </button>
                 );
               })}
@@ -542,6 +604,38 @@ export function Lobby({
               <button className="skin-picker-clear" onClick={() => selectSkin("")}>
                 Clear Skin
               </button>
+            )}
+
+            {/* Custom skin upload */}
+            {isAuthenticated && customSkinSlots > 0 && (
+              <div className="custom-skin-upload">
+                <input
+                  ref={skinFileInput}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.gif,.webp"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleCustomSkinUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  className="custom-skin-upload-btn"
+                  onClick={() => skinFileInput.current?.click()}
+                  disabled={uploadingSkin}
+                >
+                  {uploadingSkin ? "Uploading..." : `🖼️ Upload Custom Skin (${customSkinSlots} slot${customSkinSlots !== 1 ? "s" : ""})`}
+                </button>
+                {uploadError && <div className="custom-skin-error">{uploadError}</div>}
+              </div>
+            )}
+            {isAuthenticated && customSkinSlots === 0 && (
+              <div className="custom-skin-upload">
+                <button className="custom-skin-shop-btn" onClick={() => { setShowPicker(false); onOpenShop(); }}>
+                  🛒 Buy Custom Skin Slot (50🫘)
+                </button>
+              </div>
             )}
           </div>
         </div>

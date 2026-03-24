@@ -964,6 +964,10 @@ export class Renderer {
     const bot = cy + crownH / 2;
 
     ctx.save();
+    // Rotate the crown ~20° clockwise to match the 1 o'clock tilt
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 9); // 20°
+    ctx.translate(-cx, -cy);
 
     // Crown body
     ctx.beginPath();

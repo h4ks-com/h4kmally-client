@@ -17,6 +17,7 @@ import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
 import { Shop } from "./components/Shop";
 import { DailyGift } from "./components/DailyGift";
+import { PowerupHUD } from "./components/PowerupHUD";
 import { MultiboxIndicator } from "./components/MultiboxIndicator";
 import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
@@ -109,6 +110,9 @@ function GameApp() {
   const multiboxEnabledRef = useRef(false);
   const [multiboxWanted, setMultiboxWanted] = useState(false);
   const multiboxWantedRef = useRef(false);
+
+  // Powerup state (received via WebSocket)
+  const [powerupInventory, setPowerupInventory] = useState<Record<string, number>>({});
 
   // Fetch display info from Logto after authentication (name, picture, provider).
   // Server profile + session token are fetched by the connect effect below.
@@ -304,6 +308,9 @@ function GameApp() {
         if (rendererRef.current) {
           rendererRef.current.multiboxSlot = s.activeSlot;
         }
+      },
+      onPowerupState: (inventory) => {
+        setPowerupInventory(inventory);
       },
     });
 
@@ -520,6 +527,11 @@ function GameApp() {
       if (keyMatches(e.key, "freeze")) {
         e.preventDefault();
         conn.sendFreezePosition(true);
+      }
+      // Powerup use: keys 1-6
+      if (e.key >= "1" && e.key <= "6") {
+        e.preventDefault();
+        conn.sendUsePowerup(parseInt(e.key, 10));
       }
     };
 
@@ -738,6 +750,9 @@ function GameApp() {
           <Minimap state={stateRef.current} />
           {multiboxEnabled && (
             <MultiboxIndicator activeSlot={multiboxSlot} multiAlive={multiAlive} />
+          )}
+          {Object.keys(powerupInventory).length > 0 && (
+            <PowerupHUD inventory={powerupInventory} />
           )}
         </>
       )}
