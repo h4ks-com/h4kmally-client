@@ -55,6 +55,7 @@ interface SkinEntry {
   category: string;
   rarity: string;
   minLevel?: number;
+  ownerSub?: string;
 }
 
 type Tab = "users" | "online" | "ipbans" | "skins";
@@ -74,6 +75,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [uploadMinLevel, setUploadMinLevel] = useState(1);
   const [brStatus, setBrStatus] = useState<{ state: number; playersAlive: number; timeRemaining: number } | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [skinFilter, setSkinFilter] = useState<"all" | "custom">("all");
 
   const api = useCallback(
     async (endpoint: string, method = "GET", body?: Record<string, unknown>) => {
@@ -708,9 +710,25 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
 
           {tab === "skins" && (
             <>
-              <button className="admin-btn refresh" onClick={fetchSkins} disabled={loading}>
-                {loading ? "Loading..." : "Refresh"}
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <button className="admin-btn refresh" onClick={fetchSkins} disabled={loading}>
+                  {loading ? "Loading..." : "Refresh"}
+                </button>
+                <button
+                  className={`admin-btn ${skinFilter === "all" ? "refresh" : ""}`}
+                  style={{ opacity: skinFilter === "all" ? 1 : 0.5 }}
+                  onClick={() => setSkinFilter("all")}
+                >
+                  All Skins
+                </button>
+                <button
+                  className={`admin-btn ${skinFilter === "custom" ? "ban" : ""}`}
+                  style={{ opacity: skinFilter === "custom" ? 1 : 0.5 }}
+                  onClick={() => setSkinFilter("custom")}
+                >
+                  👤 Custom Skins ({skins.filter(s => s.category === "custom").length})
+                </button>
+              </div>
 
               <div className="skin-upload-form">
                 <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "#ccc" }}>Upload New Skin</h3>
@@ -771,14 +789,16 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                     <th>Name</th>
                     <th>Category</th>
                     <th>Rarity</th>
-                    <th>Min Level</th>
+                    <th>{skinFilter === "custom" ? "Owner" : "Min Level"}</th>
                     <th>File</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {skins.map((s) => (
-                    <tr key={s.name}>
+                  {skins
+                    .filter(s => skinFilter === "all" || s.category === "custom")
+                    .map((s) => (
+                    <tr key={s.name} style={s.category === "custom" ? { background: "rgba(255, 180, 220, 0.07)" } : undefined}>
                       <td>
                         <img
                           src={`${serverBaseUrl}/skins/${s.file}`}
@@ -788,7 +808,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                       </td>
                       <td>{s.name}</td>
                       <td>
-                        <span className={`badge ${s.category === "premium" ? "admin" : s.category === "level" ? "online" : "offline"}`}>
+                        <span className={`badge ${s.category === "premium" ? "admin" : s.category === "custom" ? "banned" : s.category === "level" ? "online" : "offline"}`}>
                           {s.category}
                         </span>
                       </td>
@@ -798,7 +818,11 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                         </span>
                       </td>
                       <td>
-                        {s.category === "level" ? (
+                        {s.category === "custom" ? (
+                          <span style={{ fontSize: 12, color: "#f9a8d4" }}>
+                            {s.ownerSub ? s.ownerSub.slice(0, 12) + "..." : "unknown"}
+                          </span>
+                        ) : s.category === "level" ? (
                           <input
                             type="number"
                             min={1}
@@ -826,10 +850,10 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                       </td>
                     </tr>
                   ))}
-                  {skins.length === 0 && (
+                  {skins.filter(s => skinFilter === "all" || s.category === "custom").length === 0 && (
                     <tr>
                       <td colSpan={7} style={{ textAlign: "center", padding: 20, color: "#666" }}>
-                        No skins
+                        {skinFilter === "custom" ? "No custom skins" : "No skins"}
                       </td>
                     </tr>
                   )}

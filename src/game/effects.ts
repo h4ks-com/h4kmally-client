@@ -250,83 +250,178 @@ registerEffect("lightning", "Lightning", "Crackling electric arcs", (ctx, radius
 // ══════════════════════════════════════════════════════════════
 
 // ── Sakura ─────────────────────────────────────────────────
-// Cherry blossom petals — no shadow, LOD-scaled petal count.
+// Cherry blossom petal trail — petals detach in world space and fall behind.
 
-const petalStates = new Map<string, { x: number; y: number; angle: number; size: number; speed: number; drift: number; rot: number }[]>();
-
-function getPetalState(cellKey: string, count: number) {
-  let p = petalStates.get(cellKey);
-  if (!p || p.length !== count) {
-    p = [];
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * PI2;
-      p.push({
-        x: a,
-        y: 0.85 + Math.random() * 0.7,
-        angle: Math.random() * PI2,
-        size: 0.8 + Math.random() * 1.2,
-        speed: 0.12 + Math.random() * 0.35,
-        drift: Math.random() * PI2,
-        rot: Math.random() * PI2,
-      });
-    }
-    petalStates.set(cellKey, p);
-  }
-  return p;
+interface SakuraPetal {
+  wx: number; wy: number;     // world-space position
+  vx: number; vy: number;     // world-space velocity
+  rot: number;                // rotation
+  rotSpeed: number;           // spin speed
+  size: number;               // petal size
+  age: number;                // 0→1 lifetime progress
+  maxAge: number;             // lifetime in seconds
+  variant: number;            // 0-2 color variant
 }
 
-registerEffect("sakura", "Sakura", "Cherry blossom petals drifting around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
-  if (sr < 8) return;
-  const count = sr < 30 ? 6 : Math.max(8, Math.min(20, Math.floor(radius / 10)));
-  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
-  const petals = getPetalState(cellKey, count);
+interface SakuraState {
+  petals: SakuraPetal[];
+  prevX: number; prevY: number; prevTime: number;
+  velX: number; velY: number;  // smoothed cell velocity
+  spawnAccum: number;
+}
 
-  ctx.save();
+const petalStates = new Map<string, SakuraState>();
 
-  // Soft pink ring (wide stroke simulates glow)
-  ctx.strokeStyle = `rgba(255,180,200,0.15)`;
-  ctx.lineWidth = Math.max(6, radius * 0.08);
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.12, 0, PI2);
-  ctx.stroke();
+/** Draw a 5-petal cherry blossom flower. */
+function drawCherryBlossom(ctx: CanvasRenderingContext2D, sz: number, alpha: number, variant: number) {
+  const colors = [
+    [`rgba(255,183,197,${alpha})`, `rgba(255,140,165,${alpha * 0.7})`],   // pink
+    [`rgba(255,200,210,${alpha})`, `rgba(255,160,180,${alpha * 0.7})`],   // light pink
+    [`rgba(248,170,190,${alpha})`, `rgba(240,130,155,${alpha * 0.7})`],   // deeper pink
+  ];
+  const [petalCol, innerCol] = colors[variant % colors.length];
 
-  for (const p of petals) {
-    p.x += p.speed * 0.012;
-    const orbAngle = p.x;
-    const driftOff = Math.sin(time * 0.8 + p.drift) * 0.1;
-    const dist = radius * (p.y + driftOff);
-    const px = Math.cos(orbAngle) * dist;
-    const py = Math.sin(orbAngle) * dist;
-    const sz = p.size * Math.max(3, radius * 0.04);
-    const alpha = 0.55 + 0.35 * Math.sin(time * 1.5 + p.drift);
+  const petalCount = 5;
+  const angleStep = PI2 / petalCount;
 
+  for (let i = 0; i < petalCount; i++) {
+    const a = angleStep * i - Math.PI / 2;
     ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(p.rot + time * 0.5);
-
-    // Main petal
+    ctx.rotate(a);
     ctx.beginPath();
-    ctx.ellipse(0, 0, sz, sz * 0.5, 0, 0, PI2);
-    ctx.fillStyle = `rgba(255,175,193,${alpha})`;
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(sz * 0.35, -sz * 0.25, sz * 0.8, -sz * 0.15, sz * 0.7, sz * 0.05);
+    ctx.bezierCurveTo(sz * 0.55, sz * 0.3, sz * 0.15, sz * 0.25, 0, 0);
+    ctx.fillStyle = petalCol;
     ctx.fill();
-
-    if (sr > 30) {
-      // Second petal
-      ctx.beginPath();
-      ctx.ellipse(0, 0, sz * 0.45, sz * 0.85, 0, 0, PI2);
-      ctx.fillStyle = `rgba(255,195,210,${alpha * 0.7})`;
-      ctx.fill();
-
-      // Inner highlight
-      ctx.beginPath();
-      ctx.arc(0, 0, sz * 0.2, 0, PI2);
-      ctx.fillStyle = `rgba(255,240,245,${alpha * 0.6})`;
-      ctx.fill();
-    }
-
     ctx.restore();
   }
 
+  ctx.beginPath();
+  ctx.arc(0, 0, sz * 0.12, 0, PI2);
+  ctx.fillStyle = innerCol;
+  ctx.fill();
+
+  for (let i = 0; i < 3; i++) {
+    const sa = (PI2 / 3) * i + 0.3;
+    ctx.beginPath();
+    ctx.arc(Math.cos(sa) * sz * 0.18, Math.sin(sa) * sz * 0.18, sz * 0.04, 0, PI2);
+    ctx.fillStyle = `rgba(255,220,100,${alpha * 0.8})`;
+    ctx.fill();
+  }
+}
+
+registerEffect("sakura", "Sakura", "Beautiful cherry blossom petal trail", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  const worldX = (ctx as unknown as { _effectCellX?: number })._effectCellX ?? 0;
+  const worldY = (ctx as unknown as { _effectCellY?: number })._effectCellY ?? 0;
+
+  let state = petalStates.get(cellKey);
+  if (!state) {
+    state = {
+      petals: [],
+      prevX: worldX, prevY: worldY, prevTime: time,
+      velX: 0, velY: 0,
+      spawnAccum: 0,
+    };
+    petalStates.set(cellKey, state);
+  }
+
+  const dt = time - state.prevTime;
+  if (dt > 0.001 && dt < 0.5) {
+    const rawVx = (worldX - state.prevX) / dt;
+    const rawVy = (worldY - state.prevY) / dt;
+    const smooth = 1 - Math.exp(-5.0 * dt);
+    state.velX += (rawVx - state.velX) * smooth;
+    state.velY += (rawVy - state.velY) * smooth;
+  }
+  state.prevX = worldX;
+  state.prevY = worldY;
+  state.prevTime = time;
+
+  const speed = Math.sqrt(state.velX * state.velX + state.velY * state.velY);
+  const maxPetals = sr < 30 ? 15 : Math.min(40, Math.floor(radius / 6));
+
+  // Spawn rate: lots when moving, some when idle
+  const spawnRate = Math.min(30, 4 + speed / 30);
+  if (dt > 0 && dt < 0.5) {
+    state.spawnAccum += spawnRate * dt;
+  }
+  while (state.spawnAccum >= 1 && state.petals.length < maxPetals) {
+    state.spawnAccum -= 1;
+    // Spawn at cell edge with random spread
+    const spawnAngle = Math.random() * PI2;
+    const spawnDist = radius * (0.7 + Math.random() * 0.5);
+    const spawnWx = worldX + Math.cos(spawnAngle) * spawnDist;
+    const spawnWy = worldY + Math.sin(spawnAngle) * spawnDist;
+    // Inherit half the cell's velocity + small random scatter
+    state.petals.push({
+      wx: spawnWx,
+      wy: spawnWy,
+      vx: state.velX * 0.5 + (Math.random() - 0.5) * 40,
+      vy: state.velY * 0.5 + (Math.random() - 0.5) * 40,
+      rot: Math.random() * PI2,
+      rotSpeed: (Math.random() - 0.5) * 5,
+      size: (0.8 + Math.random() * 0.7) * Math.max(6, radius * 0.12),
+      age: 0,
+      maxAge: 0.8 + Math.random() * 1.2,
+      variant: Math.floor(Math.random() * 3),
+    });
+  }
+
+  // Soft pink glow around cell
+  ctx.save();
+  const glowPulse = 0.10 + 0.05 * Math.sin(time * 2.0);
+  ctx.strokeStyle = `rgba(255,180,200,${glowPulse})`;
+  ctx.lineWidth = Math.max(4, radius * 0.06);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.08, 0, PI2);
+  ctx.stroke();
+
+  // Update and draw petals (world-space positions, drawn relative to cell)
+  const alivePetals: SakuraPetal[] = [];
+  const safeDt = Math.min(dt, 0.1);
+
+  for (const p of state.petals) {
+    p.age += safeDt / p.maxAge;
+    if (p.age >= 1) continue;
+
+    // Move in world space (independent of cell movement)
+    p.wx += p.vx * safeDt;
+    p.wy += p.vy * safeDt;
+    // Gentle flutter
+    p.wx += Math.sin(time * 2.5 + p.rot) * 10 * safeDt;
+    p.wy += Math.cos(time * 1.8 + p.rot * 0.7) * 8 * safeDt;
+    // Gentle drag (air resistance)
+    p.vx *= (1 - 2.0 * safeDt);
+    p.vy *= (1 - 2.0 * safeDt);
+    // Slight downward drift (gravity)
+    p.vy += 15 * safeDt;
+    p.rot += p.rotSpeed * safeDt;
+
+    // Fade in fast, fade out
+    const fadeIn = Math.min(1, p.age * 8);
+    const fadeOut = 1 - Math.pow(p.age, 1.5);
+    const alpha = fadeIn * fadeOut * 0.85;
+
+    if (alpha > 0.01) {
+      // Convert world position to cell-local for drawing
+      const localX = p.wx - worldX;
+      const localY = p.wy - worldY;
+      ctx.save();
+      ctx.translate(localX, localY);
+      ctx.rotate(p.rot);
+      const tilt = 0.4 + 0.6 * Math.abs(Math.sin(time * 1.5 + p.rot));
+      ctx.scale(1, tilt);
+      drawCherryBlossom(ctx, p.size, alpha, p.variant);
+      ctx.restore();
+    }
+
+    alivePetals.push(p);
+  }
+
+  state.petals = alivePetals;
   ctx.restore();
 }, "premium");
 

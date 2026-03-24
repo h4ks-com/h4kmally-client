@@ -607,7 +607,7 @@ export function Lobby({
             )}
 
             {/* Custom skin upload */}
-            {isAuthenticated && customSkinSlots > 0 && (
+            {isAuthenticated && (customSkinSlots > 0 || isAdmin) && (
               <div className="custom-skin-upload">
                 <input
                   ref={skinFileInput}
@@ -625,12 +625,12 @@ export function Lobby({
                   onClick={() => skinFileInput.current?.click()}
                   disabled={uploadingSkin}
                 >
-                  {uploadingSkin ? "Uploading..." : `🖼️ Upload Custom Skin (${customSkinSlots} slot${customSkinSlots !== 1 ? "s" : ""})`}
+                  {uploadingSkin ? "Uploading..." : isAdmin ? "🖼️ Upload Custom Skin (admin)" : `🖼️ Upload Custom Skin (${customSkinSlots} slot${customSkinSlots !== 1 ? "s" : ""})`}
                 </button>
                 {uploadError && <div className="custom-skin-error">{uploadError}</div>}
               </div>
             )}
-            {isAuthenticated && customSkinSlots === 0 && (
+            {isAuthenticated && !isAdmin && customSkinSlots === 0 && (
               <div className="custom-skin-upload">
                 <button className="custom-skin-shop-btn" onClick={() => { setShowPicker(false); onOpenShop(); }}>
                   🛒 Buy Custom Skin Slot (50🫘)
