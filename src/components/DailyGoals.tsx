@@ -32,12 +32,12 @@ interface DailyGoalsProps {
 }
 
 const POWERUP_INFO: Record<string, PowerupDef> = {
-  virus_layer: { type: "virus_layer", label: "Virus Layer", description: "Drop viruses behind you", charges: 5, keySlot: 1 },
-  speed_boost: { type: "speed_boost", label: "Speed Boost", description: "Short burst of 2× speed", charges: 3, keySlot: 2 },
-  ghost_mode: { type: "ghost_mode", label: "Ghost Mode", description: "Pass through cells for ~4s", charges: 1, keySlot: 3 },
-  mass_magnet: { type: "mass_magnet", label: "Mass Magnet", description: "Pull nearby pellets & mass for ~5s", charges: 2, keySlot: 4 },
-  freeze_splitter: { type: "freeze_splitter", label: "Freeze Splitter", description: "Fire a projectile that force-splits an enemy", charges: 3, keySlot: 5 },
-  recombine: { type: "recombine", label: "Recombine", description: "Instantly merge all your split cells", charges: 1, keySlot: 6 },
+  virus_layer: { type: "virus_layer", label: "Virus Layer", description: "Drop a virus behind your farthest blob", charges: 5, keySlot: 1 },
+  speed_boost: { type: "speed_boost", label: "Speed Boost", description: "6 seconds of 2× speed", charges: 3, keySlot: 2 },
+  ghost_mode: { type: "ghost_mode", label: "Ghost Mode", description: "Pass through cells for 6s", charges: 1, keySlot: 3 },
+  mass_magnet: { type: "mass_magnet", label: "Mass Magnet", description: "Pull nearby mass & enemies for 5s", charges: 2, keySlot: 4 },
+  freeze_splitter: { type: "freeze_splitter", label: "Freeze Splitter", description: "Shoot a virus that splits & freezes an enemy for 3s", charges: 3, keySlot: 5 },
+  recombine: { type: "recombine", label: "Recombine", description: "Rapidly merge all your split cells", charges: 1, keySlot: 6 },
 };
 
 const GOAL_ICONS: Record<string, string> = {
