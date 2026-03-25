@@ -353,7 +353,7 @@ export function Shop({ serverBaseUrl, sessionToken, onClose }: ShopProps) {
             {completedOrders.length > 0 && (
               <div className="shop-orders">
                 <h3>✅ Completed</h3>
-                {completedOrders.map(order => (
+                {completedOrders.slice(0, 5).map(order => (
                   <div key={order.id} className="shop-order completed">
                     <span className="shop-order-tokens">
                       {order.tokenType === "bundle"

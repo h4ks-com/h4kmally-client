@@ -1,0 +1,633 @@
+/* ── Overlay ── */
+.mp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Panel ── */
+.mp-panel {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  max-width: 860px;
+  width: 95%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 24px;
+  color: #eee;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Header ── */
+.mp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.mp-header h2 { margin: 0; font-size: 1.4rem; }
+.mp-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.8rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+}
+.mp-close:hover { color: #fff; }
+
+.mp-desc {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+/* ── Loading / feedback ── */
+.mp-loading { text-align: center; padding: 40px 0; color: #666; }
+.mp-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.mp-error {
+  background: rgba(255, 50, 50, 0.15);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  color: #f66;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+.mp-success {
+  background: rgba(50, 200, 100, 0.15);
+  border: 1px solid rgba(50, 200, 100, 0.3);
+  color: #4d4;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+/* ── Tabs ── */
+.mp-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+}
+.mp-tab {
+  background: none;
+  border: 1px solid transparent;
+  color: #888;
+  font-size: 0.85rem;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mp-tab:hover { color: #ddd; background: rgba(255, 255, 255, 0.05); }
+.mp-tab.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mp-refresh-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #666;
+  font-size: 1rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  align-self: center;
+}
+.mp-refresh-btn:hover { color: #ddd; border-color: rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.05); }
+.mp-refresh-btn:disabled { opacity: 0.4; cursor: default; animation: mp-spin 0.7s linear infinite; }
+
+@keyframes mp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+/* ── Body ── */
+.mp-body { min-height: 200px; }
+
+/* ── Browse controls ── */
+.mp-browse-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.mp-search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #eee;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.mp-search:focus { border-color: rgba(52, 152, 219, 0.5); }
+.mp-filter-row {
+  display: flex;
+  gap: 8px;
+}
+.mp-filter-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 0.82rem;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+}
+.mp-filter-select option { background: #1a1a2e; }
+
+/* ── Best deals section ── */
+.mp-best-deals { margin-bottom: 18px; }
+.mp-deals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ── Browse grid ── */
+.mp-browse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+/* ── Grid card ── */
+.mp-grid-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 10px 10px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 0;
+}
+.mp-grid-card:hover { border-color: rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.06); }
+.mp-grid-card.mp-trade-card { border-color: rgba(155, 89, 182, 0.35); background: rgba(155, 89, 182, 0.06); }
+
+.mp-grid-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mp-grid-emoji { font-size: 2.2rem; line-height: 1; }
+
+.mp-grid-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ddd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.mp-grid-meta {
+  display: flex;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: #888;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mp-grid-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.mp-grid-price {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f0d080;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mp-save-tag {
+  background: rgba(46, 204, 113, 0.2);
+  border: 1px solid rgba(46, 204, 113, 0.35);
+  color: #2ecc71;
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.mp-deal-badge {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* ── List mode cards (My Listings / My Purchases) ── */
+.mp-listings { display: flex; flex-direction: column; gap: 8px; }
+
+.mp-listing-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+  transition: border-color 0.15s;
+}
+.mp-listing-card:hover { border-color: rgba(255, 255, 255, 0.15); }
+.mp-listing-card.reversed { opacity: 0.5; }
+
+.mp-listing-icon {
+  font-size: 1.5rem;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mp-listing-info { flex: 1; min-width: 0; }
+.mp-listing-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mp-listing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 0.78rem;
+  color: #888;
+}
+.mp-listing-qty { color: #aaa; }
+.mp-listing-seller { color: #7bb; }
+.mp-listing-buyer { color: #7bb; }
+.mp-listing-time { color: #666; }
+
+.mp-listing-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f0d080;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Status badge ── */
+.mp-status-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mp-status-active    { background: rgba(50, 200, 100, 0.18); color: #4c4; }
+.mp-status-sold      { background: rgba(52, 152, 219, 0.18); color: #69f; }
+.mp-status-cancelled { background: rgba(150, 150, 150, 0.18); color: #888; }
+.mp-status-reversed  { background: rgba(255, 80, 80, 0.18); color: #f66; }
+.mp-status-pending   { background: rgba(243, 156, 18, 0.18); color: #fa0; }
+.mp-status-expired   { background: rgba(150, 150, 150, 0.18); color: #888; }
+
+/* ── Buttons ── */
+.mp-buy-btn, .mp-cancel-btn, .mp-pay-btn, .mp-create-btn {
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 14px;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mp-buy-btn, .mp-pay-btn {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: #fff;
+}
+.mp-buy-btn:hover, .mp-pay-btn:hover { opacity: 0.85; }
+.mp-buy-btn:disabled, .mp-pay-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Full-width action buttons inside grid cards */
+.mp-grid-card .mp-buy-btn,
+.mp-grid-card .mp-trade-btn { width: 100%; justify-content: center; padding: 5px 8px; font-size: 0.8rem; }
+
+.mp-cancel-btn {
+  background: rgba(255, 80, 80, 0.2);
+  color: #f88;
+  border: 1px solid rgba(255, 80, 80, 0.3);
+}
+.mp-cancel-btn:hover { background: rgba(255, 80, 80, 0.3); }
+.mp-cancel-btn:disabled { opacity: 0.5; cursor: default; }
+
+.mp-create-btn {
+  background: linear-gradient(135deg, #27ae60, #1e8449);
+  color: #fff;
+  width: 100%;
+  padding: 10px;
+  font-size: 0.95rem;
+  margin-top: 8px;
+}
+.mp-create-btn:hover { opacity: 0.85; }
+.mp-create-btn:disabled { opacity: 0.5; cursor: default; }
+
+.mp-login-hint { font-size: 0.78rem; color: #666; flex-shrink: 0; }
+
+/* ── Sell form ── */
+.mp-sell { max-width: 480px; margin: 0 auto; }
+
+.mp-create-form { display: flex; flex-direction: column; gap: 14px; }
+
+.mp-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mp-form-row label {
+  font-size: 0.82rem;
+  color: #aaa;
+  font-weight: 600;
+}
+.mp-form-row select,
+.mp-form-row input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.9rem;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.mp-form-row select:focus,
+.mp-form-row input:focus { border-color: rgba(52, 152, 219, 0.6); }
+.mp-form-row select option { background: #1a1a2e; }
+
+.mp-hint { color: #666; font-weight: 400; }
+
+.mp-form-summary {
+  font-size: 0.85rem;
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 10px 12px;
+  line-height: 1.6;
+}
+.mp-form-summary strong { color: #fff; }
+
+/* ── Section labels ── */
+.mp-section-label {
+  font-size: 0.78rem;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 8px;
+  margin-bottom: 2px;
+  padding-left: 2px;
+}
+
+/* ── Pending purchase card ── */
+.mp-pending-purchase {
+  border-color: rgba(243, 156, 18, 0.25) !important;
+  background: rgba(243, 156, 18, 0.05) !important;
+}
+
+/* ── Payout error indicator ── */
+.mp-payout-err { color: #f88; cursor: help; font-size: 0.8rem; }
+
+/* ── My listing (seller view) ── */
+.mp-mine.sold { border-color: rgba(52, 152, 219, 0.25); background: rgba(52, 152, 219, 0.05); }
+.mp-mine.cancelled { opacity: 0.6; }
+
+/* ── Skin thumbnail ── */
+.mp-skin-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #2a2a3e;
+  flex-shrink: 0;
+}
+
+.mp-listing-emoji {
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Trade listing styles ── */
+.mp-trade-card {
+  border-color: rgba(155, 89, 182, 0.35) !important;
+  background: rgba(155, 89, 182, 0.06) !important;
+}
+
+.mp-trade-badge {
+  display: inline-block;
+  background: rgba(155, 89, 182, 0.3);
+  border: 1px solid rgba(155, 89, 182, 0.5);
+  color: #c39bd3;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.mp-trade-btn {
+  background: rgba(155, 89, 182, 0.25);
+  border: 1px solid rgba(155, 89, 182, 0.5);
+  color: #c39bd3;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.mp-trade-btn:hover { background: rgba(155, 89, 182, 0.4); }
+.mp-trade-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Trade wants section ── */
+.mp-wants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.mp-wants-label {
+  font-size: 0.72rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.mp-want-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(155, 89, 182, 0.15);
+  border: 1px solid rgba(155, 89, 182, 0.3);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.77rem;
+  color: #c39bd3;
+}
+
+.mp-want-chip img {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ── Listing type toggle ── */
+.mp-listing-type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mp-type-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #888;
+  transition: all 0.15s;
+}
+.mp-type-btn.active {
+  background: rgba(52, 152, 219, 0.2);
+  border-color: rgba(52, 152, 219, 0.5);
+  color: #85c1e9;
+}
+.mp-type-btn.active[onClick] { }
+
+/* ── Wanted items builder ── */
+.mp-wanted-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(155, 89, 182, 0.25);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(155, 89, 182, 0.05);
+}
+
+.mp-wanted-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mp-wanted-header label {
+  font-size: 0.82rem;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.mp-add-want-btn {
+  background: rgba(155, 89, 182, 0.2);
+  border: 1px solid rgba(155, 89, 182, 0.4);
+  color: #c39bd3;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.mp-add-want-btn:hover { background: rgba(155, 89, 182, 0.35); }
+
+.mp-want-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+}
+.mp-want-row select,
+.mp-want-row input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.85rem;
+  padding: 5px 7px;
+  outline: none;
+  min-width: 0;
+}
+.mp-want-row select:first-child { flex: 0 0 90px; }
+.mp-want-row select:not(:first-child),
+.mp-want-row input[type="text"] { flex: 1; min-width: 0; }
+
+.mp-want-qty { flex: 0 0 48px !important; text-align: center; padding: 5px 4px !important; }
+
+.mp-remove-want-btn {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mp-remove-want-btn:hover { background: rgba(231, 76, 60, 0.3); }
+

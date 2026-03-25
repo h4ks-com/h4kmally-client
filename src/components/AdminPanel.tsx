@@ -58,7 +58,40 @@ interface SkinEntry {
   ownerSub?: string;
 }
 
-type Tab = "users" | "online" | "ipbans" | "skins";
+interface MarketplaceListing {
+  id: string;
+  sellerSub: string;
+  sellerUsername: string;
+  itemType: string;
+  itemKey: string;
+  itemName: string;
+  quantity: number;
+  price: number;
+  status: "active" | "sold" | "cancelled" | "reversed";
+  createdAt: number;
+  buyerSub?: string;
+  buyerUsername?: string;
+  soldAt?: number;
+  payoutErr?: string;
+  reversedAt?: number;
+  reversedBy?: string;
+  reversalNote?: string;
+  refundSent?: boolean;
+  refundErr?: string;
+  itemsClawedBack?: boolean;
+}
+
+interface MarketplacePendingPurchase {
+  id: string;
+  listingId: string;
+  buyerSub: string;
+  buyerUsername: string;
+  amount: number;
+  status: "pending" | "completed" | "expired";
+  createdAt: number;
+}
+
+type Tab = "users" | "online" | "ipbans" | "skins" | "marketplace";
 
 export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("online");
@@ -77,6 +110,10 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [autoInterval, setAutoInterval] = useState(60);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [skinFilter, setSkinFilter] = useState<"all" | "custom">("all");
+  const [marketplaceListings, setMarketplaceListings] = useState<MarketplaceListing[]>([]);
+  const [marketplacePending, setMarketplacePending] = useState<MarketplacePendingPurchase[]>([]);
+  const [mpStatusFilter, setMpStatusFilter] = useState<"all" | "active" | "sold" | "cancelled" | "reversed">("all");
+  const [reversalNote, setReversalNote] = useState<Record<string, string>>({});
 
   const api = useCallback(
     async (endpoint: string, method = "GET", body?: Record<string, unknown>) => {
@@ -149,13 +186,27 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     }
   }, [api]);
 
+  const fetchMarketplace = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api("marketplace");
+      setMarketplaceListings(data.listings || []);
+      setMarketplacePending(data.pending || []);
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
   // Fetch data when tab changes
   useEffect(() => {
     if (tab === "users") fetchUsers();
     else if (tab === "online") fetchOnline();
     else if (tab === "ipbans") fetchIPBans();
     else if (tab === "skins") fetchSkins();
-  }, [tab, fetchUsers, fetchOnline, fetchIPBans, fetchSkins]);
+    else if (tab === "marketplace") fetchMarketplace();
+  }, [tab, fetchUsers, fetchOnline, fetchIPBans, fetchSkins, fetchMarketplace]);
 
   const handleToggleAdmin = async (sub: string, currentlyAdmin: boolean) => {
     try {
@@ -401,6 +452,12 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
             onClick={() => setTab("skins")}
           >
             Skins ({skins.length})
+          </button>
+          <button
+            className={`admin-tab ${tab === "marketplace" ? "active" : ""}`}
+            onClick={() => setTab("marketplace")}
+          >
+            Marketplace
           </button>
         </div>
 
@@ -906,6 +963,143 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                       <td colSpan={7} style={{ textAlign: "center", padding: 20, color: "#666" }}>
                         {skinFilter === "custom" ? "No custom skins" : "No skins"}
                       </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
+          {tab === "marketplace" && (
+            <>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                <button className="admin-btn refresh" onClick={fetchMarketplace} disabled={loading}>
+                  {loading ? "Loading..." : "Refresh"}
+                </button>
+                {(["all", "active", "sold", "cancelled", "reversed"] as const).map(s => (
+                  <button
+                    key={s}
+                    className={`admin-btn ${mpStatusFilter === s ? "refresh" : ""}`}
+                    style={{ opacity: mpStatusFilter === s ? 1 : 0.5, textTransform: "capitalize" }}
+                    onClick={() => setMpStatusFilter(s)}
+                  >
+                    {s} ({s === "all" ? marketplaceListings.length : marketplaceListings.filter(l => l.status === s).length})
+                  </button>
+                ))}
+              </div>
+
+              {marketplacePending.filter(p => p.status === "pending").length > 0 && (
+                <div style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: 6, padding: "8px 12px", marginBottom: 12 }}>
+                  <strong style={{ color: "#eab308", fontSize: 13 }}>Pending Purchases ({marketplacePending.filter(p => p.status === "pending").length})</strong>
+                  <table style={{ marginTop: 6, fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th>Buyer</th>
+                        <th>Listing</th>
+                        <th>Amount</th>
+                        <th>Created</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {marketplacePending.filter(p => p.status === "pending").map(p => (
+                        <tr key={p.id}>
+                          <td>{p.buyerUsername}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.listingId.slice(0, 8)}...</td>
+                          <td>{p.amount} 🫘</td>
+                          <td>{new Date(p.createdAt).toLocaleString()}</td>
+                          <td><span className="badge online">pending</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <table style={{ fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Seller</th>
+                    <th>Buyer</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {marketplaceListings
+                    .filter(l => mpStatusFilter === "all" || l.status === mpStatusFilter)
+                    .sort((a, b) => b.createdAt - a.createdAt)
+                    .map(l => (
+                      <tr key={l.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: "#ddd" }}>{l.itemName}</div>
+                          <div style={{ color: "#888", fontSize: 11 }}>{l.itemType}</div>
+                        </td>
+                        <td>{l.quantity}</td>
+                        <td>{l.price} 🫘</td>
+                        <td style={{ color: "#a5b4fc" }}>{l.sellerUsername}</td>
+                        <td style={{ color: l.buyerUsername ? "#86efac" : "#555" }}>{l.buyerUsername || "—"}</td>
+                        <td>
+                          <span className={`badge ${l.status === "active" ? "online" : l.status === "sold" ? "admin" : l.status === "reversed" ? "banned" : "offline"}`}>
+                            {l.status}
+                          </span>
+                          {l.payoutErr && <div style={{ color: "#f87171", fontSize: 10, marginTop: 2 }}>⚠ payout failed</div>}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap", color: "#888", fontSize: 11 }}>
+                          {new Date(l.createdAt).toLocaleDateString()}
+                        </td>
+                        <td>
+                          {l.status === "sold" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <input
+                                type="text"
+                                placeholder="Reversal note"
+                                value={reversalNote[l.id] || ""}
+                                onChange={e => setReversalNote(prev => ({ ...prev, [l.id]: e.target.value }))}
+                                style={{ background: "#222", border: "1px solid #444", borderRadius: 4, color: "#ddd", padding: "3px 6px", fontSize: 11, width: 130 }}
+                              />
+                              <button
+                                className="admin-btn ban"
+                                style={{ fontSize: 11, padding: "2px 8px" }}
+                                onClick={async () => {
+                                  if (!confirm(`Reverse listing ${l.id.slice(0,8)}? This will refund the buyer and return items to the seller.`)) return;
+                                  try {
+                                    const res = await api("marketplace/reverse", "POST", { listingId: l.id, note: reversalNote[l.id] || "" });
+                                    showMsg("success", `Reversed. Refund: ${res.refundSent ? "sent" : "failed"}. Items clawed back: ${res.clawedBack ? "yes" : "no"}.`);
+                                    fetchMarketplace();
+                                  } catch (e: unknown) {
+                                    showMsg("error", (e as Error).message);
+                                  }
+                                }}
+                              >
+                                Reverse
+                              </button>
+                            </div>
+                          )}
+                          {l.status === "reversed" && (
+                            <div style={{ fontSize: 11, color: "#888" }}>
+                              by {l.reversedBy}<br />
+                              {l.reversalNote && <span style={{ color: "#aaa" }}>{l.reversalNote}</span>}
+                              <div style={{ marginTop: 2 }}>
+                                <span style={{ color: l.refundSent ? "#86efac" : "#f87171" }}>
+                                  refund: {l.refundSent ? "✓" : "✗"}
+                                </span>
+                                {" | "}
+                                <span style={{ color: l.itemsClawedBack ? "#86efac" : "#f87171" }}>
+                                  items: {l.itemsClawedBack ? "✓" : "✗"}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  {marketplaceListings.filter(l => mpStatusFilter === "all" || l.status === mpStatusFilter).length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center", padding: 20, color: "#666" }}>No listings</td>
                     </tr>
                   )}
                 </tbody>

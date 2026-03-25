@@ -56,6 +56,7 @@ interface LobbyProps {
   isAdmin: boolean;
   onOpenAdmin: () => void;
   onOpenShop: () => void;
+  onOpenMarketplace: () => void;
   onOpenClan: () => void;
   sessionToken: string | null;
   userLevel: number;
@@ -92,6 +93,7 @@ export function Lobby({
   isAdmin,
   onOpenAdmin,
   onOpenShop,
+  onOpenMarketplace,
   onOpenClan,
   sessionToken,
   userLevel,
@@ -326,6 +328,10 @@ export function Lobby({
               🛒 Shop
             </button>
           )}
+
+          <button className="btn-shop" onClick={onOpenMarketplace} style={{ background: "rgba(20,90,50,0.55)", borderColor: "rgba(39,174,96,0.5)" }}>
+            🏪 Marketplace
+          </button>
 
           {isAdmin && (
             <button className="btn-admin" onClick={onOpenAdmin}>

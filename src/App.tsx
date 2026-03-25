@@ -16,6 +16,7 @@ import { HowToPlay } from "./components/HowToPlay";
 import { Callback } from "./components/Callback";
 import { AdminPanel } from "./components/AdminPanel";
 import { Shop } from "./components/Shop";
+import { Marketplace } from "./components/Marketplace";
 import { DailyGift } from "./components/DailyGift";
 import { PowerupHUD } from "./components/PowerupHUD";
 import { MultiboxIndicator } from "./components/MultiboxIndicator";
@@ -77,6 +78,7 @@ function GameApp() {
   const [showOptions, setShowOptions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [showClanPanel, setShowClanPanel] = useState(false);
   const [score, setScore] = useState(0);
   const [latency, setLatency] = useState(0);
@@ -615,6 +617,10 @@ function GameApp() {
     setShowShop(true);
   }, []);
 
+  const handleOpenMarketplace = useCallback(() => {
+    setShowMarketplace(true);
+  }, []);
+
   const handleMultiboxToggle = useCallback(() => {
     const newWanted = !multiboxWantedRef.current;
     multiboxWantedRef.current = newWanted;
@@ -715,6 +721,7 @@ function GameApp() {
           isAdmin={!!userProfile?.isAdmin}
           onOpenAdmin={handleOpenAdmin}
           onOpenShop={handleOpenShop}
+          onOpenMarketplace={handleOpenMarketplace}
           onOpenClan={() => setShowClanPanel(true)}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
@@ -782,6 +789,14 @@ function GameApp() {
           serverBaseUrl={serverBaseUrl}
           sessionToken={sessionToken}
           onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {showMarketplace && serverBaseUrl && (
+        <Marketplace
+          serverBaseUrl={serverBaseUrl}
+          sessionToken={sessionToken}
+          onClose={() => setShowMarketplace(false)}
         />
       )}
 
