@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, ReactNode } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import "./Marketplace.css";
 
 interface TradeItem {
