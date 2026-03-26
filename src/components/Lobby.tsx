@@ -136,7 +136,7 @@ export function Lobby({
   const [showEffectPicker, setShowEffectPicker] = useState(false);
   const [lbTab, setLbTab] = useState<"top" | "lb" | "goals">("top");
   const [topUsers, setTopUsers] = useState<TopUserEntry[]>([]);
-  const [skinCategoryTab, setSkinCategoryTab] = useState<string>("all");
+  const [skinCategoryTab, setSkinCategoryTab] = useState<string>("free");
   const [effectCategoryTab, setEffectCategoryTab] = useState<string>("all");
   const [showCursorPicker, setShowCursorPicker] = useState(false);
   const cursorPreviewCache = useRef<Map<string, string>>(new Map());
@@ -565,10 +565,8 @@ export function Lobby({
 
             {/* Category tabs */}
             <div className="skin-category-tabs">
-              {["all", "free", "level", "premium", "custom"].map((cat) => {
-                const count = cat === "all"
-                  ? skins.length
-                  : skins.filter((s) => s.category === cat).length;
+              {["free", "level", "premium", "custom"].map((cat) => {
+                const count = skins.filter((s) => s.category === cat).length;
                 return (
                   <button
                     key={cat}
@@ -583,7 +581,7 @@ export function Lobby({
 
             <div className="skin-picker-grid">
               {skins
-                .filter((s) => skinCategoryTab === "all" || s.category === skinCategoryTab)
+                .filter((s) => s.category === skinCategoryTab)
                 .map((s) => {
                   const locked = !s.accessible;
                   return (
