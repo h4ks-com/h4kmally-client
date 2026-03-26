@@ -450,6 +450,20 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     }
   };
 
+  const handleGiveMass = async (playerId: number, mass: number) => {
+    if (mass <= 0) {
+      showMsg("error", "Enter a positive mass amount");
+      return;
+    }
+    try {
+      await api("give-mass", "POST", { playerId, mass });
+      showMsg("success", `Gave ${mass.toLocaleString()} mass to player`);
+      fetchOnline();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
   return (
     <div className="admin-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="admin-panel">
@@ -574,6 +588,41 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                       <td>{p.userSub ? "Signed in" : "Guest"}</td>
                       <td style={{ fontFamily: "monospace", fontSize: 12 }}>{p.ip}</td>
                       <td>
+                        {p.alive && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginRight: 8 }}>
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000000}
+                              placeholder="Mass"
+                              style={{ width: 72, background: "#222", border: "1px solid #444", borderRadius: 4, color: "#ddd", padding: "2px 6px", fontSize: 12 }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  const val = Number((e.target as HTMLInputElement).value);
+                                  if (val > 0) {
+                                    handleGiveMass(p.playerId, val);
+                                    (e.target as HTMLInputElement).value = "";
+                                  }
+                                }
+                              }}
+                              id={`give-mass-${p.playerId}`}
+                            />
+                            <button
+                              className="admin-btn refresh"
+                              style={{ padding: "2px 8px", fontSize: 11 }}
+                              onClick={() => {
+                                const input = document.getElementById(`give-mass-${p.playerId}`) as HTMLInputElement;
+                                const val = Number(input?.value);
+                                if (val > 0) {
+                                  handleGiveMass(p.playerId, val);
+                                  if (input) input.value = "";
+                                }
+                              }}
+                            >
+                              Give Mass
+                            </button>
+                          </span>
+                        )}
                         {p.userSub && (
                           <select
                             className="admin-powerup-select"
