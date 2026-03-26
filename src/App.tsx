@@ -22,6 +22,8 @@ import { PowerupHUD } from "./components/PowerupHUD";
 import { MultiboxIndicator } from "./components/MultiboxIndicator";
 import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
+import { TankLobby } from "./components/TankLobby";
+import type { TankLobbyState, TankCursorInfo } from "./protocol";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -115,6 +117,12 @@ function GameApp() {
 
   // Powerup state (received via WebSocket)
   const [powerupInventory, setPowerupInventory] = useState<Record<string, number>>({});
+
+  // Tank state
+  const [showTankLobby, setShowTankLobby] = useState(false);
+  const [tankState, setTankState] = useState<TankLobbyState | null>(null);
+  const [tankCursors, setTankCursors] = useState<TankCursorInfo[]>([]);
+  const tankCursorsRef = useRef<TankCursorInfo[]>([]);
 
   // Fetch display info from Logto after authentication (name, picture, provider).
   // Server profile + session token are fetched by the connect effect below.
@@ -230,6 +238,11 @@ function GameApp() {
           if (rendererRef.current) {
             rendererRef.current.multiboxSlot = 0;
           }
+          // Reset tank state
+          setShowTankLobby(false);
+          setTankState(null);
+          setTankCursors([]);
+          tankCursorsRef.current = [];
         }
       },
       onWorldUpdate: (ev) => {
@@ -258,6 +271,11 @@ function GameApp() {
       onClearMine: () => {
         gs.onClearMine();
         setAlive(false);
+
+        // Reset tank state on death
+        setTankState(null);
+        setTankCursors([]);
+        tankCursorsRef.current = [];
 
         // Auto-respawn: re-spawn after a short delay if setting enabled
         // (Skip during multibox — the server handles respawning individual slots.
@@ -313,6 +331,23 @@ function GameApp() {
       },
       onPowerupState: (inventory) => {
         setPowerupInventory(inventory);
+      },
+      onTankLobby: (state) => {
+        setTankState(state);
+        if (state.state === "playing") {
+          setShowTankLobby(false);
+          setAlive(true);
+          setShowLobby(false);
+        }
+        if (state.state === "ended") {
+          setTankState(null);
+          setTankCursors([]);
+          tankCursorsRef.current = [];
+        }
+      },
+      onTankCursors: (cursors) => {
+        setTankCursors(cursors);
+        tankCursorsRef.current = cursors;
       },
     });
 
@@ -425,6 +460,8 @@ function GameApp() {
         renderer.refreshMouseWorld();
         connRef.current.sendMouse(renderer.mouseWorldX, renderer.mouseWorldY);
       }
+      // Push tank cursors to renderer
+      renderer.tankCursors = tankCursorsRef.current;
     }, 33);
     mouseIntervalRef.current = interval;
 
@@ -632,6 +669,41 @@ function GameApp() {
     }
   }, [alive]);
 
+  const handleOpenTank = useCallback(() => {
+    setShowTankLobby(true);
+  }, []);
+
+  const handleTankQueue = useCallback((size: number, isPrivate: boolean) => {
+    const conn = connRef.current;
+    if (!conn?.connected) return;
+    const name = localStorage.getItem("h4kmally-name") || "unnamed";
+    const skin = localStorage.getItem("h4kmally-skin") || "";
+    const effect = localStorage.getItem("h4kmally-effect") || "";
+    conn.sendTankQueue(size, isPrivate, name, skin, effect);
+  }, []);
+
+  const handleTankJoin = useCallback((code: string) => {
+    const conn = connRef.current;
+    if (!conn?.connected) return;
+    const name = localStorage.getItem("h4kmally-name") || "unnamed";
+    const skin = localStorage.getItem("h4kmally-skin") || "";
+    const effect = localStorage.getItem("h4kmally-effect") || "";
+    conn.sendTankJoin(code, name, skin, effect);
+  }, []);
+
+  const handleTankCancel = useCallback(() => {
+    const conn = connRef.current;
+    if (!conn?.connected) return;
+    conn.sendTankCancel();
+    setTankState(null);
+  }, []);
+
+  const handleTankVote = useCallback((skin: string, effect: string) => {
+    const conn = connRef.current;
+    if (!conn?.connected) return;
+    conn.sendTankVote(skin, effect);
+  }, []);
+
   const handleChatSend = useCallback((text: string) => {
     const conn = connRef.current;
     if (conn) conn.sendChat(text);
@@ -735,6 +807,7 @@ function GameApp() {
           onSettingsChange={handleSettingsChange}
           multiboxEnabled={multiboxWanted}
           onMultiboxToggle={handleMultiboxToggle}
+          onOpenTank={handleOpenTank}
           pendingTokens={pendingTokens}
           pendingEffectTokens={pendingEffectTokens}
           serverBaseUrlForTokens={serverBaseUrl}
@@ -751,12 +824,32 @@ function GameApp() {
         />
       )}
 
+      {showTankLobby && !alive && (
+        <TankLobby
+          tankState={tankState}
+          onQueue={handleTankQueue}
+          onJoin={handleTankJoin}
+          onCancel={handleTankCancel}
+          onVote={handleTankVote}
+          onClose={() => { setShowTankLobby(false); setTankState(null); }}
+          connectionState={connectionState}
+        />
+      )}
+
       {alive && (
         <>
           <HUD score={score} latency={latency} leaderboard={leaderboard} levelUpText={levelUpText} />
           <Minimap state={stateRef.current} />
           {multiboxEnabled && (
             <MultiboxIndicator activeSlot={multiboxSlot} multiAlive={multiAlive} />
+          )}
+          {tankState?.state === "playing" && tankState.members && (
+            <div className="tank-playing-indicator">
+              <span className="tank-playing-label">🚀 TANK</span>
+              <span className="tank-playing-members">
+                {tankState.members.map((m: { name: string }) => m.name).join(" · ")}
+              </span>
+            </div>
           )}
           {Object.keys(powerupInventory).length > 0 && (
             <PowerupHUD inventory={powerupInventory} />

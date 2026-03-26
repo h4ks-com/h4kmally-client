@@ -1,0 +1,369 @@
+.tank-lobby {
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  color: #eee;
+  text-align: center;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.tank-lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.tank-lobby-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #4fc3f7;
+}
+
+.tank-close-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.tank-close-btn:hover {
+  color: #fff;
+}
+
+.tank-description {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin: 0 0 16px;
+}
+
+.tank-error {
+  background: rgba(255, 60, 60, 0.15);
+  border: 1px solid #d44;
+  border-radius: 6px;
+  color: #ff8888;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+/* Size selector */
+.tank-size-selector {
+  margin-bottom: 16px;
+}
+
+.tank-size-selector label {
+  display: block;
+  font-size: 0.9rem;
+  color: #bbb;
+  margin-bottom: 8px;
+}
+
+.tank-size-options {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.tank-size-btn {
+  padding: 8px 16px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.85rem;
+}
+.tank-size-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.tank-size-btn.active {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+/* Action buttons */
+.tank-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tank-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.tank-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tank-btn-public {
+  background: linear-gradient(135deg, #1565c0, #1976d2);
+  color: white;
+}
+.tank-btn-public:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976d2, #2196f3);
+}
+
+.tank-btn-private {
+  background: linear-gradient(135deg, #6a1b9a, #7b1fa2);
+  color: white;
+}
+.tank-btn-private:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7b1fa2, #9c27b0);
+}
+
+.tank-btn-join {
+  background: #2e7d32;
+  color: white;
+  padding: 8px 16px;
+}
+.tank-btn-join:hover:not(:disabled) {
+  background: #388e3c;
+}
+
+.tank-btn-cancel {
+  background: rgba(255, 60, 60, 0.2);
+  border: 1px solid #d44;
+  color: #ff8888;
+  margin-top: 12px;
+}
+.tank-btn-cancel:hover {
+  background: rgba(255, 60, 60, 0.3);
+}
+
+.tank-btn-vote {
+  background: linear-gradient(135deg, #00897b, #00acc1);
+  color: white;
+  width: 100%;
+  margin-top: 8px;
+}
+.tank-btn-vote:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00acc1, #26c6da);
+}
+
+/* Join section */
+.tank-join-section {
+  border-top: 1px solid #333;
+  padding-top: 12px;
+}
+
+.tank-join-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.tank-join-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.tank-code-input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #eee;
+  padding: 8px 12px;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 3px;
+  font-family: monospace;
+  width: 120px;
+  text-transform: uppercase;
+}
+.tank-code-input::placeholder {
+  color: #666;
+  letter-spacing: 2px;
+}
+
+/* Code display */
+.tank-code-display {
+  background: rgba(79, 195, 247, 0.1);
+  border: 1px solid #4fc3f7;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.tank-code-display span {
+  color: #aaa;
+  font-size: 0.85rem;
+}
+.tank-code-value {
+  font-family: monospace;
+  font-size: 1.4rem;
+  letter-spacing: 4px;
+  color: #4fc3f7;
+}
+.tank-code-copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 2px;
+}
+.tank-code-copy:hover {
+  transform: scale(1.2);
+}
+
+/* Members list */
+.tank-members {
+  margin-bottom: 12px;
+}
+
+.tank-member-header {
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.tank-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.tank-member-name {
+  font-size: 0.9rem;
+  color: #ddd;
+}
+
+.tank-host-badge {
+  margin-right: 4px;
+}
+
+.tank-vote-badge {
+  font-size: 0.75rem;
+  color: #4caf50;
+}
+
+.tank-vote-pending {
+  font-size: 0.75rem;
+  color: #ff9800;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Timer */
+.tank-timer {
+  color: #ff9800;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+/* Voting */
+.tank-vote-form {
+  margin-top: 12px;
+}
+
+.tank-vote-group {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.tank-vote-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.tank-vote-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tank-vote-btn {
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+}
+.tank-vote-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.tank-vote-btn.active {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+.tank-vote-status {
+  color: #4caf50;
+  font-size: 0.9rem;
+  margin-top: 12px;
+}
+
+/* Playing indicator */
+.tank-playing-indicator {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid #4fc3f7;
+  border-radius: 8px;
+  padding: 6px 16px;
+  max-width: 360px;
+  z-index: 500;
+}
+
+.tank-playing-label {
+  font-size: 0.75rem;
+  color: #4fc3f7;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.tank-playing-members {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.tank-playing-name {
+  font-size: 0.7rem;
+  color: #aaa;
+}

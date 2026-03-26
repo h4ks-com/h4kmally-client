@@ -11,6 +11,10 @@ import {
   CLIENT_DIRECTION_LOCK,
   CLIENT_FREEZE_POSITION,
   CLIENT_USE_POWERUP,
+  CLIENT_TANK_QUEUE,
+  CLIENT_TANK_JOIN,
+  CLIENT_TANK_CANCEL,
+  CLIENT_TANK_VOTE,
   CLIENT_CHAT,
   CLIENT_SPECTATE,
   CLIENT_SPECTATOR_CMD,
@@ -29,6 +33,8 @@ import {
   SERVER_CLAN_POSITIONS,
   SERVER_BATTLE_ROYALE,
   SERVER_POWERUP_STATE,
+  SERVER_TANK_LOBBY,
+  SERVER_TANK_CURSORS,
   SERVER_SPAWN_RESULT,
   SERVER_PING_REPLY,
 } from "./opcodes";
@@ -114,6 +120,34 @@ export interface MultiboxState {
   multiAlive: boolean;
 }
 
+// ── Tank types ───────────────────────────────────────────
+
+export interface TankMemberInfo {
+  name: string;
+  isHost?: boolean;
+  voted?: boolean;
+  skin?: string;
+  effect?: string;
+}
+
+export interface TankLobbyState {
+  state: "waiting" | "voting" | "playing" | "ended" | "error";
+  code?: string;
+  desiredSize?: number;
+  members?: TankMemberInfo[];
+  waitTimer?: number;
+  voteTimer?: number;
+  allSkins?: string[];
+  allEffects?: string[];
+  error?: string;
+}
+
+export interface TankCursorInfo {
+  name: string;
+  x: number;
+  y: number;
+}
+
 // ── Callbacks ────────────────────────────────────────────────
 
 export interface ConnectionCallbacks {
@@ -134,6 +168,8 @@ export interface ConnectionCallbacks {
   onClanPositions?: (members: ClanMemberPosition[]) => void;
   onBattleRoyale?: (br: BattleRoyaleState) => void;
   onPowerupState?: (inventory: Record<string, number>) => void;
+  onTankLobby?: (state: TankLobbyState) => void;
+  onTankCursors?: (cursors: TankCursorInfo[]) => void;
 }
 
 // ── Connection ───────────────────────────────────────────────
@@ -314,6 +350,50 @@ export class Connection {
     this.ws.send(buf.buffer);
   }
 
+  /** Queue for a tank session (public or create private). */
+  sendTankQueue(size: number, isPrivate: boolean, name: string, skin: string, effect: string) {
+    if (!this.shuffle || !this.ws) return;
+    const json = JSON.stringify({ size, private: isPrivate, name, skin, effect });
+    const w = new Writer(128);
+    w.writeUint8(this.shuffle.encode(CLIENT_TANK_QUEUE));
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(json);
+    for (let i = 0; i < bytes.length; i++) w.writeUint8(bytes[i]);
+    this.ws.send(w.build());
+  }
+
+  /** Join a private tank session by code. */
+  sendTankJoin(code: string, name: string, skin: string, effect: string) {
+    if (!this.shuffle || !this.ws) return;
+    const json = JSON.stringify({ code, name, skin, effect });
+    const w = new Writer(128);
+    w.writeUint8(this.shuffle.encode(CLIENT_TANK_JOIN));
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(json);
+    for (let i = 0; i < bytes.length; i++) w.writeUint8(bytes[i]);
+    this.ws.send(w.build());
+  }
+
+  /** Cancel tank matchmaking. */
+  sendTankCancel() {
+    if (!this.shuffle || !this.ws) return;
+    const buf = new Uint8Array(1);
+    buf[0] = this.shuffle.encode(CLIENT_TANK_CANCEL);
+    this.ws.send(buf.buffer);
+  }
+
+  /** Vote for skin/effect during tank voting phase. */
+  sendTankVote(skin: string, effect: string) {
+    if (!this.shuffle || !this.ws) return;
+    const json = JSON.stringify({ skin, effect });
+    const w = new Writer(128);
+    w.writeUint8(this.shuffle.encode(CLIENT_TANK_VOTE));
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(json);
+    for (let i = 0; i < bytes.length; i++) w.writeUint8(bytes[i]);
+    this.ws.send(w.build());
+  }
+
   private sendPing() {
     if (!this.shuffle || !this.ws) return;
     this.pingTimestamp = performance.now();
@@ -405,6 +485,12 @@ export class Connection {
         break;
       case SERVER_POWERUP_STATE:
         this.parsePowerupState(r);
+        break;
+      case SERVER_TANK_LOBBY:
+        this.parseTankLobby(r, data.byteLength);
+        break;
+      case SERVER_TANK_CURSORS:
+        this.parseTankCursors(r);
         break;
       case SERVER_SPAWN_RESULT:
         this.cb.onSpawnResult?.(r.readUint8() === 1);
@@ -569,6 +655,42 @@ export class Connection {
       }
     }
     this.cb.onPowerupState?.(inventory);
+  }
+
+  private parseTankLobby(r: Reader, totalLen: number) {
+    // JSON payload starts after opcode (1 byte)
+    const remaining = totalLen - 1;
+    if (remaining <= 0) return;
+    const bytes = new Uint8Array(remaining);
+    for (let i = 0; i < remaining; i++) {
+      bytes[i] = r.readUint8();
+    }
+    try {
+      const state = JSON.parse(new TextDecoder().decode(bytes)) as TankLobbyState;
+      this.cb.onTankLobby?.(state);
+    } catch (e) {
+      console.error("Failed to parse tank lobby state:", e);
+    }
+  }
+
+  private parseTankCursors(r: Reader) {
+    const count = r.readUint8();
+    const cursors: TankCursorInfo[] = [];
+    for (let i = 0; i < count; i++) {
+      const nameLen = r.readUint8();
+      let name = "";
+      if (nameLen > 0) {
+        const bytes = new Uint8Array(nameLen);
+        for (let j = 0; j < nameLen; j++) {
+          bytes[j] = r.readUint8();
+        }
+        name = new TextDecoder().decode(bytes);
+      }
+      const x = r.readInt16();
+      const y = r.readInt16();
+      cursors.push({ name, x, y });
+    }
+    this.cb.onTankCursors?.(cursors);
   }
 
   // ── Internal ─────────────────────────────────────────────

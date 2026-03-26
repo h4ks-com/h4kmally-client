@@ -62,6 +62,9 @@ export class Renderer {
   // Multibox: which slot is actively controlled (0=primary, 1=multi)
   multiboxSlot = 0;
 
+  // Tank mode: teammate cursor positions (set from outside via ref)
+  tankCursors: { name: string; x: number; y: number }[] = [];
+
   // Frame counter for periodic effect cleanup
   private frameCount = 0;
 
@@ -478,6 +481,7 @@ export class Renderer {
     if (this.settings.showTrails) this.drawTrails(ctx);
     this.drawCells(ctx);
     if (this.settings.showCursorLines) this.drawCursorLines(ctx);
+    this.drawTankCursors(ctx);
 
     // Draw BR zone (in world space, before restore)
     this.drawBattleRoyaleZone(ctx);
@@ -645,6 +649,47 @@ export class Renderer {
       ctx.moveTo(mx, my);
       ctx.lineTo(cell.x, cell.y);
       ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /** Draw small crosshairs for each tank teammate cursor position */
+  private drawTankCursors(ctx: CanvasRenderingContext2D) {
+    const cursors = this.tankCursors;
+    if (!cursors || cursors.length === 0) return;
+
+    const colors = ["#ff6b6b", "#51cf66", "#fcc419", "#339af0"];
+    const crossSize = 14 / this.camZoom;
+    const fontSize = Math.max(10, 12 / this.camZoom);
+
+    ctx.save();
+    ctx.lineWidth = 2.5 / this.camZoom;
+
+    for (let i = 0; i < cursors.length; i++) {
+      const c = cursors[i];
+      const color = colors[i % colors.length];
+
+      // Crosshair
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(c.x - crossSize, c.y);
+      ctx.lineTo(c.x + crossSize, c.y);
+      ctx.moveTo(c.x, c.y - crossSize);
+      ctx.lineTo(c.x, c.y + crossSize);
+      ctx.stroke();
+
+      // Small circle at center
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 3 / this.camZoom, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // Name label
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.fillText(c.name, c.x, c.y - crossSize - 4 / this.camZoom);
     }
 
     ctx.restore();

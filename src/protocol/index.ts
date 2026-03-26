@@ -12,4 +12,7 @@ export type {
   ClanMemberPosition,
   BattleRoyaleState,
   MultiboxState,
+  TankLobbyState,
+  TankMemberInfo,
+  TankCursorInfo,
 } from "./connection";

@@ -498,6 +498,26 @@
   opacity: 0.5;
 }
 
+.btn-tank-mode {
+  padding: 4px 12px;
+  border: 1px solid #4fc3f7;
+  border-radius: 6px;
+  background: rgba(79, 195, 247, 0.12);
+  color: #4fc3f7;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 8px;
+}
+.btn-tank-mode:hover:not(:disabled) {
+  background: rgba(79, 195, 247, 0.25);
+}
+.btn-tank-mode:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .btn-connect {
   width: 100%;
   height: 36px;

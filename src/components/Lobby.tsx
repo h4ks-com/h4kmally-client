@@ -68,6 +68,7 @@ interface LobbyProps {
   onSettingsChange: (s: Settings) => void;
   multiboxEnabled: boolean;
   onMultiboxToggle: () => void;
+  onOpenTank: () => void;
   pendingTokens: Array<{skinName: string}>;
   pendingEffectTokens: Array<{effectName: string}>;
   serverBaseUrlForTokens: string;
@@ -105,6 +106,7 @@ export function Lobby({
   onSettingsChange,
   multiboxEnabled,
   onMultiboxToggle,
+  onOpenTank,
   pendingTokens,
   pendingEffectTokens,
   serverBaseUrlForTokens,
@@ -436,6 +438,15 @@ export function Lobby({
                 />
                 <span>Multibox</span>
               </label>
+
+              <button
+                className="btn-tank-mode"
+                onClick={onOpenTank}
+                disabled={connectionState !== "connected"}
+                title="Multiple players control one body"
+              >
+                &#x1F680; Tank
+              </button>
             </div>
           )}
 

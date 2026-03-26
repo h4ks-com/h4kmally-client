@@ -90,3 +90,36 @@ html, body, #root {
 .spectator-godmode:hover {
   background: rgba(0, 0, 0, 0.7);
 }
+
+/* ── Tank playing indicator ── */
+.tank-playing-indicator {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.25), rgba(0, 80, 200, 0.35));
+  border: 1px solid rgba(0, 150, 255, 0.5);
+  border-radius: 8px;
+  padding: 6px 16px;
+  z-index: 60;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.tank-playing-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5cf;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: Arial, sans-serif;
+}
+
+.tank-playing-members {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: Arial, sans-serif;
+}
