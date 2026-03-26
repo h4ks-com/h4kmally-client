@@ -338,6 +338,16 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     fetchSkins();
   };
 
+  const handleEditSkin = async (oldName: string, updates: { name?: string; category?: string; rarity?: string }) => {
+    try {
+      await api("edit-skin", "POST", { oldName, ...updates });
+      showMsg("success", `Skin "${oldName}" updated`);
+      fetchSkins();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
   const handleDeleteSkin = async (name: string) => {
     if (!confirm(`Delete skin "${name}"? This cannot be undone.`)) return;
     try {
@@ -937,16 +947,42 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                           style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", background: "#333" }}
                         />
                       </td>
-                      <td>{s.name}</td>
                       <td>
-                        <span className={`badge ${s.category === "premium" ? "admin" : s.category === "custom" ? "banned" : s.category === "level" ? "online" : "offline"}`}>
-                          {s.category}
-                        </span>
+                        <input
+                          type="text"
+                          defaultValue={s.name}
+                          style={{ background: "#222", border: "1px solid #444", borderRadius: 4, color: "#ddd", padding: "2px 6px", fontSize: 12, width: 120 }}
+                          onBlur={(e) => {
+                            const val = e.target.value.trim();
+                            if (val && val !== s.name) handleEditSkin(s.name, { name: val });
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        />
                       </td>
                       <td>
-                        <span className={`badge ${s.rarity === "legendary" ? "admin" : s.rarity === "epic" ? "banned" : s.rarity === "rare" ? "online" : "offline"}`}>
-                          {s.rarity}
-                        </span>
+                        <select
+                          defaultValue={s.category}
+                          style={{ background: "#222", border: "1px solid #444", borderRadius: 4, color: "#ddd", padding: "2px 6px", fontSize: 12 }}
+                          onChange={(e) => handleEditSkin(s.name, { category: e.target.value })}
+                        >
+                          <option value="free">free</option>
+                          <option value="premium">premium</option>
+                          <option value="level">level</option>
+                          <option value="clan">clan</option>
+                          <option value="custom">custom</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          defaultValue={s.rarity}
+                          style={{ background: "#222", border: "1px solid #444", borderRadius: 4, color: "#ddd", padding: "2px 6px", fontSize: 12 }}
+                          onChange={(e) => handleEditSkin(s.name, { rarity: e.target.value })}
+                        >
+                          <option value="common">common</option>
+                          <option value="rare">rare</option>
+                          <option value="epic">epic</option>
+                          <option value="legendary">legendary</option>
+                        </select>
                       </td>
                       <td>
                         {s.category === "custom" ? (
