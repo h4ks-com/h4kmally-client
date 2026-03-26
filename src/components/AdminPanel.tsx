@@ -288,32 +288,54 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
       showMsg("error", "Please select an image file");
       return;
     }
-    if (!uploadName.trim()) {
+    const files = Array.from(fileInput.files);
+    const isBatch = files.length > 1;
+
+    // For single file, require name field; for batch, derive from filenames
+    if (!isBatch && !uploadName.trim()) {
       showMsg("error", "Please enter a skin name");
       return;
     }
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-    formData.append("name", uploadName.trim());
-    formData.append("category", uploadCategory);
-    formData.append("rarity", uploadRarity);
-    if (uploadCategory === "level") {
-      formData.append("minLevel", String(uploadMinLevel));
+
+    let succeeded = 0;
+    const errors: string[] = [];
+
+    for (const file of files) {
+      const skinName = isBatch
+        ? file.name.replace(/\.[^.]+$/, "") // strip extension
+        : uploadName.trim();
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", skinName);
+      formData.append("category", uploadCategory);
+      formData.append("rarity", uploadRarity);
+      if (uploadCategory === "level") {
+        formData.append("minLevel", String(uploadMinLevel));
+      }
+      try {
+        const resp = await fetch(`${serverBaseUrl}/api/admin/upload-skin?session=${encodeURIComponent(sessionToken)}`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        succeeded++;
+      } catch (e: unknown) {
+        errors.push(`${skinName}: ${(e as Error).message}`);
+      }
     }
-    try {
-      const resp = await fetch(`${serverBaseUrl}/api/admin/upload-skin?session=${encodeURIComponent(sessionToken)}`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+    if (errors.length > 0) {
+      showMsg("error", `${succeeded}/${files.length} uploaded. Errors: ${errors.join("; ")}`);
+    } else if (isBatch) {
+      showMsg("success", `${succeeded} skin${succeeded !== 1 ? "s" : ""} uploaded`);
+    } else {
       showMsg("success", `Skin "${uploadName.trim()}" uploaded`);
-      setUploadName("");
-      if (fileInput) fileInput.value = "";
-      fetchSkins();
-    } catch (e: unknown) {
-      showMsg("error", (e as Error).message);
     }
+    setUploadName("");
+    if (fileInput) fileInput.value = "";
+    fetchSkins();
   };
 
   const handleDeleteSkin = async (name: string) => {
@@ -882,6 +904,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                     ref={fileInputRef}
                     type="file"
                     accept=".png,.jpg,.jpeg,.gif,.webp"
+                    multiple
                     style={{ fontSize: 12, color: "#aaa" }}
                   />
                   <button className="admin-btn unban" onClick={handleUploadSkin}>
