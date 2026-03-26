@@ -121,7 +121,6 @@ function GameApp() {
   // Tank state
   const [showTankLobby, setShowTankLobby] = useState(false);
   const [tankState, setTankState] = useState<TankLobbyState | null>(null);
-  const [tankCursors, setTankCursors] = useState<TankCursorInfo[]>([]);
   const tankCursorsRef = useRef<TankCursorInfo[]>([]);
 
   // Fetch display info from Logto after authentication (name, picture, provider).
@@ -241,7 +240,6 @@ function GameApp() {
           // Reset tank state
           setShowTankLobby(false);
           setTankState(null);
-          setTankCursors([]);
           tankCursorsRef.current = [];
         }
       },
@@ -274,7 +272,6 @@ function GameApp() {
 
         // Reset tank state on death
         setTankState(null);
-        setTankCursors([]);
         tankCursorsRef.current = [];
 
         // Auto-respawn: re-spawn after a short delay if setting enabled
@@ -341,12 +338,10 @@ function GameApp() {
         }
         if (state.state === "ended") {
           setTankState(null);
-          setTankCursors([]);
           tankCursorsRef.current = [];
         }
       },
       onTankCursors: (cursors) => {
-        setTankCursors(cursors);
         tankCursorsRef.current = cursors;
       },
     });
