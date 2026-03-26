@@ -119,6 +119,20 @@ export function HowToPlay({ keybinds, onClose }: HowToPlayProps) {
           </section>
 
           <section className="htp-section">
+            <h3>Multibox</h3>
+            <p>Multibox lets you control <strong>two separate cell groups</strong> at the same time on the same server. Enable it from the lobby checkbox, then press <kbd>{k("multiboxSwitch")}</kbd> to swap which group follows your mouse.</p>
+            <p>When one group is active, the other holds its position. This lets you set up devastating combos — for example, park one group near a target, switch to the other to herd them in, then switch back and split for the kill. You can also feed mass between your two groups to grow one of them quickly.</p>
+            <p>Multibox is a high-skill technique: you need to keep track of both groups on the map and switch at the right moment. The HUD indicator shows which slot is active and whether your second group is alive.</p>
+          </section>
+
+          <section className="htp-section">
+            <h3>Tank Mode</h3>
+            <p>Tank mode lets <strong>2–4 players share control of a single cell</strong>. Open Tank Mode from the lobby, choose a team size, and queue up — or create a private room and share the code with friends.</p>
+            <p>Once matched, everyone votes on a skin and effect for the shared cell, then you all spawn as one body. Movement is the average of all players' cursors, and <em>any</em> player in the tank can split or eject at any time.</p>
+            <p>Communication is key: coordinate your mouse direction so the cell doesn't stutter, and call out when you're about to split. A well-coordinated tank can react faster than any solo player because someone is always watching every angle.</p>
+          </section>
+
+          <section className="htp-section">
             <h3>Clans</h3>
             <p>Join or create a clan to team up with other players. Clanmates appear on your minimap and have colored tags above their names. Coordinate in clan chat to dominate the server together.</p>
           </section>

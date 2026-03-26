@@ -926,13 +926,13 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
               <table style={{ marginTop: 12 }}>
                 <thead>
                   <tr>
+                    <th></th>
                     <th>Preview</th>
                     <th>Name</th>
                     <th>Category</th>
                     <th>Rarity</th>
                     <th>{skinFilter === "custom" ? "Owner" : "Min Level"}</th>
                     <th>File</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -940,6 +940,11 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                     .filter(s => skinFilter === "all" || s.category === "custom")
                     .map((s) => (
                     <tr key={s.name} style={s.category === "custom" ? { background: "rgba(255, 180, 220, 0.07)" } : undefined}>
+                      <td>
+                        <button className="admin-btn ban" onClick={() => handleDeleteSkin(s.name)} style={{ padding: "2px 8px", fontSize: 11 }}>
+                          ✕
+                        </button>
+                      </td>
                       <td>
                         <img
                           src={`${serverBaseUrl}/skins/${s.file}`}
@@ -1010,16 +1015,11 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                         )}
                       </td>
                       <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.file}</td>
-                      <td>
-                        <button className="admin-btn ban" onClick={() => handleDeleteSkin(s.name)}>
-                          Delete
-                        </button>
-                      </td>
                     </tr>
                   ))}
                   {skins.filter(s => skinFilter === "all" || s.category === "custom").length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: 20, color: "#666" }}>
+                      <td colSpan={8} style={{ textAlign: "center", padding: 20, color: "#666" }}>
                         {skinFilter === "custom" ? "No custom skins" : "No skins"}
                       </td>
                     </tr>
