@@ -1685,11 +1685,777 @@ registerEffect("pulse_wave", "Pulse Wave", "Expanding energy ripples radiating f
   ctx.restore();
 }, "premium");
 
+// ── Aurora Borealis ─────────────────────────────────────────
+// Shimmering curtains of coloured light rippling around the cell.
+
+registerEffect("aurora", "Aurora Borealis", "Shimmering northern-light curtains around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const bands = sr < 30 ? 3 : 5;
+  const bandWidth = Math.max(3, radius * 0.04);
+  for (let b = 0; b < bands; b++) {
+    const phase = time * 1.2 + b * 1.1;
+    const hue = (b * 72 + time * 25) % 360;
+    const segments = sr < 40 ? 20 : 40;
+    ctx.beginPath();
+    for (let s = 0; s <= segments; s++) {
+      const angle = (s / segments) * PI2;
+      const wave = Math.sin(angle * 3 + phase) * radius * 0.04 +
+                   Math.sin(angle * 7 + phase * 1.5) * radius * 0.02;
+      const dist = radius * (1.04 + b * 0.035) + wave;
+      const px = Math.cos(angle) * dist;
+      const py = Math.sin(angle) * dist;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const alpha = (0.25 - b * 0.04) * (0.6 + 0.4 * Math.sin(phase * 0.7));
+    ctx.strokeStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
+    ctx.lineWidth = bandWidth;
+    ctx.stroke();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Meteor Shower ──────────────────────────────────────────
+// Small shooting-star meteors streak past the cell with tiny trails.
+
+registerEffect("meteor", "Meteor Shower", "Shooting-star meteors streaking around your cell", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const count = sr < 30 ? 4 : 8;
+  ctx.lineCap = "round";
+  for (let i = 0; i < count; i++) {
+    const speed = 1.5 + (i % 3) * 0.6;
+    const angle = ((time * speed + i * 2.37) % PI2);
+    const dist = radius * (1.05 + 0.15 * Math.sin(time * 0.8 + i * 1.3));
+    const hx = Math.cos(angle) * dist;
+    const hy = Math.sin(angle) * dist;
+    const trailLen = radius * 0.18;
+    const tx = Math.cos(angle - 0.25) * (dist + trailLen);
+    const ty = Math.sin(angle - 0.25) * (dist + trailLen);
+    const alpha = 0.5 + 0.4 * Math.sin(time * 3 + i);
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(tx, ty);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${alpha * 0.5})`;
+    ctx.lineWidth = Math.max(2, radius * 0.02);
+    ctx.stroke();
+    // Bright head
+    ctx.beginPath();
+    ctx.arc(hx, hy, Math.max(2, radius * 0.018), 0, PI2);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Hologram ───────────────────────────────────────────────
+// Sci-fi holographic wireframe ring with scan line.
+
+registerEffect("hologram", "Hologram", "Futuristic holographic wireframe projection", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const segments = sr < 30 ? 10 : 16;
+  const spin = time * 0.8;
+  // Wireframe ring
+  for (let i = 0; i < segments; i++) {
+    const a0 = (i / segments) * PI2 + spin;
+    const a1 = ((i + 1) / segments) * PI2 + spin;
+    const d0 = radius * (1.06 + 0.03 * Math.sin(time * 4 + i * 1.2));
+    const d1 = radius * (1.06 + 0.03 * Math.sin(time * 4 + (i + 1) * 1.2));
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a0) * d0, Math.sin(a0) * d0);
+    ctx.lineTo(Math.cos(a1) * d1, Math.sin(a1) * d1);
+    const flicker = 0.3 + 0.5 * Math.abs(Math.sin(time * 6 + i));
+    ctx.strokeStyle = `rgba(0,220,255,${flicker})`;
+    ctx.lineWidth = Math.max(1.5, radius * 0.012);
+    ctx.stroke();
+  }
+  // Horizontal scan line
+  if (sr > 20) {
+    const scanY = radius * 1.1 * Math.sin(time * 2);
+    ctx.beginPath();
+    ctx.moveTo(-radius * 1.1, scanY);
+    ctx.lineTo(radius * 1.1, scanY);
+    ctx.strokeStyle = `rgba(0,255,220,0.15)`;
+    ctx.lineWidth = Math.max(2, radius * 0.03);
+    ctx.stroke();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Sandstorm ──────────────────────────────────────────────
+// Swirling sand particles in a dust storm.
+
+registerEffect("sandstorm", "Sandstorm", "Whirling sand and dust particles around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const count = sr < 30 ? 15 : 30;
+  for (let i = 0; i < count; i++) {
+    const seed = i * 73.37;
+    const orbit = time * (0.4 + (i % 5) * 0.15) + seed;
+    const dist = radius * (0.95 + 0.3 * ((Math.sin(seed + time * 0.5) + 1) / 2));
+    const px = Math.cos(orbit) * dist;
+    const py = Math.sin(orbit) * dist;
+    const sz = Math.max(1, radius * (0.008 + 0.01 * Math.sin(seed)));
+    const alpha = 0.2 + 0.4 * Math.abs(Math.sin(time * 2 + seed));
+    const shade = 180 + Math.floor(40 * Math.sin(seed));
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, PI2);
+    ctx.fillStyle = `rgba(${shade},${shade - 30},${shade - 80},${alpha})`;
+    ctx.fill();
+  }
+  // Dusty haze ring
+  ctx.strokeStyle = `rgba(200,170,120,${0.06 + 0.03 * Math.sin(time * 1.5)})`;
+  ctx.lineWidth = Math.max(6, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.06, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Snowfall ───────────────────────────────────────────────
+// Gentle snowflakes drifting down around the cell.
+
+registerEffect("snowfall", "Snowfall", "Gentle snowflakes softly drifting around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const count = sr < 30 ? 10 : 20;
+  for (let i = 0; i < count; i++) {
+    const seed = i * 47.83;
+    const x = Math.sin(seed) * radius * 1.2 + Math.sin(time * 0.7 + seed) * radius * 0.15;
+    const fallCycle = ((time * 0.3 + seed * 0.01) % 1.0);
+    const y = -radius * 1.3 + fallCycle * radius * 2.6;
+    const alpha = Math.sin(fallCycle * Math.PI) * 0.7;
+    const sz = Math.max(1.5, radius * (0.015 + 0.01 * Math.sin(seed * 3)));
+    if (alpha > 0.02) {
+      // 6-point snowflake
+      ctx.beginPath();
+      for (let a = 0; a < 6; a++) {
+        const ang = (a / 6) * PI2;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(ang) * sz, y + Math.sin(ang) * sz);
+      }
+      ctx.strokeStyle = `rgba(230,240,255,${alpha})`;
+      ctx.lineWidth = Math.max(0.8, sz * 0.3);
+      ctx.stroke();
+    }
+  }
+  // Frosty outer ring
+  ctx.strokeStyle = `rgba(200,225,255,${0.08 + 0.04 * Math.sin(time * 1.2)})`;
+  ctx.lineWidth = Math.max(4, radius * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.04, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Electric Storm ─────────────────────────────────────────
+// Multiple forking lightning bolts arcing outward from the cell surface.
+
+const stormStates = new Map<string, { forks: { angle: number; seed: number; life: number; maxLife: number }[]; timer: number }>();
+
+registerEffect("electric_storm", "Electric Storm", "Violent forking lightning arcing from your cell", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let state = stormStates.get(cellKey);
+  if (!state) { state = { forks: [], timer: 0 }; stormStates.set(cellKey, state); }
+  const maxForks = sr < 30 ? 3 : 6;
+  // Spawn new forks
+  if (time - state.timer > 0.12 && state.forks.length < maxForks) {
+    state.timer = time;
+    state.forks.push({ angle: Math.random() * PI2, seed: Math.random() * 999, life: 0, maxLife: 8 + Math.floor(Math.random() * 10) });
+  }
+  ctx.save();
+  ctx.lineCap = "round";
+  let w = 0;
+  for (let i = 0; i < state.forks.length; i++) {
+    const f = state.forks[i];
+    f.life++;
+    if (f.life > f.maxLife) continue;
+    if (w !== i) state.forks[w] = state.forks[i];
+    w++;
+    const progress = f.life / f.maxLife;
+    const alpha = 1 - progress;
+    const segs = sr < 40 ? 5 : 8;
+    const length = radius * (0.2 + 0.3 * (1 - progress));
+    ctx.beginPath();
+    const startX = Math.cos(f.angle) * radius * 1.01;
+    const startY = Math.sin(f.angle) * radius * 1.01;
+    ctx.moveTo(startX, startY);
+    for (let s = 1; s <= segs; s++) {
+      const t = s / segs;
+      const jitter = Math.sin(f.seed + s * 57.3 + time * 25) * radius * 0.04;
+      const d = radius * 1.01 + t * length;
+      const a = f.angle + jitter / d;
+      ctx.lineTo(Math.cos(a) * d, Math.sin(a) * d);
+    }
+    ctx.strokeStyle = `rgba(${Math.min(255, r + 80)},${Math.min(255, g + 80)},${Math.min(255, b + 120)},${alpha * 0.8})`;
+    ctx.lineWidth = Math.max(2, radius * 0.02 * (1 - progress * 0.5));
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.4})`;
+    ctx.lineWidth = Math.max(0.5, radius * 0.006);
+    ctx.stroke();
+  }
+  state.forks.length = w;
+  ctx.restore();
+}, "premium");
+
+// ── Magma ──────────────────────────────────────────────────
+// Molten lava cracks glowing between segments, rising embers.
+
+registerEffect("magma", "Magma", "Molten cracks and rising embers of lava", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  // Lava cracks
+  const crackCount = sr < 30 ? 6 : 10;
+  ctx.lineCap = "round";
+  for (let i = 0; i < crackCount; i++) {
+    const a = (i / crackCount) * PI2 + Math.sin(time * 0.5 + i) * 0.08;
+    const len = radius * (0.06 + 0.1 * Math.sin(time * 1.5 + i * 2.1));
+    const sx = Math.cos(a) * radius * 0.98;
+    const sy = Math.sin(a) * radius * 0.98;
+    const ex = Math.cos(a) * (radius * 0.98 + len);
+    const ey = Math.sin(a) * (radius * 0.98 + len);
+    const glow = 0.5 + 0.5 * Math.sin(time * 3 + i * 1.7);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.strokeStyle = `rgba(255,${80 + Math.floor(glow * 80)},0,${0.5 + glow * 0.4})`;
+    ctx.lineWidth = Math.max(2, radius * 0.025);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,100,${glow * 0.3})`;
+    ctx.lineWidth = Math.max(0.8, radius * 0.008);
+    ctx.stroke();
+  }
+  // Embers floating upward
+  if (sr > 20) {
+    const emberCount = sr < 40 ? 6 : 12;
+    for (let i = 0; i < emberCount; i++) {
+      const seed = i * 31.7;
+      const orbit = time * 0.8 + seed;
+      const rise = ((time * 0.6 + seed * 0.01) % 1.0);
+      const dist = radius * (1.0 + rise * 0.35);
+      const px = Math.cos(orbit) * dist;
+      const py = Math.sin(orbit) * dist - rise * radius * 0.2;
+      const alpha = Math.sin(rise * Math.PI) * 0.7;
+      const sz = Math.max(1.2, radius * 0.012);
+      ctx.beginPath();
+      ctx.arc(px, py, sz, 0, PI2);
+      ctx.fillStyle = `rgba(255,${150 + Math.floor(Math.sin(seed) * 60)},30,${alpha})`;
+      ctx.fill();
+    }
+  }
+  // Hot glow ring
+  ctx.strokeStyle = `rgba(255,100,0,${0.08 + 0.05 * Math.sin(time * 2)})`;
+  ctx.lineWidth = Math.max(5, radius * 0.08);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.03, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Nebula ─────────────────────────────────────────────────
+// Soft cosmic gas cloud layers with embedded sparkles.
+
+registerEffect("nebula", "Nebula", "Soft cosmic gas clouds and cosmic dust", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const layers = sr < 30 ? 2 : 4;
+  for (let l = 0; l < layers; l++) {
+    const hue = (l * 90 + time * 15) % 360;
+    const layerDist = radius * (1.05 + l * 0.06);
+    const grad = ctx.createRadialGradient(0, 0, layerDist - radius * 0.1, 0, 0, layerDist + radius * 0.15);
+    grad.addColorStop(0, `hsla(${hue}, 70%, 50%, 0)`);
+    grad.addColorStop(0.4, `hsla(${hue}, 70%, 60%, ${0.10 + 0.05 * Math.sin(time * 1.2 + l)})`);
+    grad.addColorStop(1, `hsla(${hue}, 70%, 50%, 0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, layerDist + radius * 0.15, 0, PI2);
+    ctx.fill();
+  }
+  // Embedded sparkles
+  if (sr > 20) {
+    const sparkCount = sr < 40 ? 6 : 12;
+    for (let i = 0; i < sparkCount; i++) {
+      const a = time * 0.3 + i * (PI2 / sparkCount);
+      const d = radius * (1.02 + 0.18 * Math.sin(time * 0.8 + i * 2));
+      const twinkle = Math.abs(Math.sin(time * 4 + i * 1.7));
+      const sz = Math.max(1, radius * 0.01) * twinkle;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * d, Math.sin(a) * d, sz, 0, PI2);
+      ctx.fillStyle = `rgba(255,255,255,${twinkle * 0.6})`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Firefly ────────────────────────────────────────────────
+// Glowing fireflies lazily orbiting the cell, blinking on and off.
+
+registerEffect("firefly", "Firefly", "Glowing fireflies lazily orbiting and blinking", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const count = sr < 30 ? 5 : 10;
+  for (let i = 0; i < count; i++) {
+    const seed = i * 53.1;
+    const speed = 0.3 + (i % 4) * 0.1;
+    const orbit = time * speed + seed;
+    const dist = radius * (1.05 + 0.2 * Math.sin(time * 0.4 + seed));
+    const wobbleX = Math.sin(time * 1.5 + seed * 2) * radius * 0.06;
+    const wobbleY = Math.cos(time * 1.2 + seed * 3) * radius * 0.06;
+    const px = Math.cos(orbit) * dist + wobbleX;
+    const py = Math.sin(orbit) * dist + wobbleY;
+    // Blink pattern
+    const blink = Math.max(0, Math.sin(time * (2 + i * 0.3) + seed));
+    const glowSz = Math.max(3, radius * 0.03) * (0.5 + blink * 0.5);
+    const bodyAlpha = blink * 0.7 + 0.1;
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(px, py, glowSz * 2, 0, PI2);
+    ctx.fillStyle = `rgba(180,255,80,${bodyAlpha * 0.15})`;
+    ctx.fill();
+    // Body
+    ctx.beginPath();
+    ctx.arc(px, py, glowSz, 0, PI2);
+    ctx.fillStyle = `rgba(200,255,100,${bodyAlpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Ocean Wave ─────────────────────────────────────────────
+// Flowing water wave arcs rippling around the cell.
+
+registerEffect("ocean_wave", "Ocean Wave", "Flowing water waves rippling around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const waves = sr < 30 ? 2 : 3;
+  const segments = sr < 40 ? 24 : 40;
+  for (let w = 0; w < waves; w++) {
+    const phase = time * (1.5 + w * 0.5) + w * 2;
+    const baseDist = radius * (1.03 + w * 0.04);
+    ctx.beginPath();
+    for (let s = 0; s <= segments; s++) {
+      const angle = (s / segments) * PI2;
+      const wave = Math.sin(angle * 5 + phase) * radius * 0.025 +
+                   Math.sin(angle * 3 - phase * 0.7) * radius * 0.015;
+      const dist = baseDist + wave;
+      const px = Math.cos(angle) * dist;
+      const py = Math.sin(angle) * dist;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const alpha = 0.3 - w * 0.08;
+    ctx.strokeStyle = `rgba(60,180,255,${alpha})`;
+    ctx.lineWidth = Math.max(2, radius * 0.025);
+    ctx.stroke();
+  }
+  // Foam sparkles
+  if (sr > 25) {
+    for (let i = 0; i < 8; i++) {
+      const a = time * 0.6 + i * (PI2 / 8);
+      const d = radius * (1.02 + 0.04 * Math.sin(time * 3 + i * 2));
+      const twinkle = Math.abs(Math.sin(time * 5 + i * 1.3));
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * d, Math.sin(a) * d, Math.max(1, radius * 0.008), 0, PI2);
+      ctx.fillStyle = `rgba(200,240,255,${twinkle * 0.5})`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Runic ──────────────────────────────────────────────────
+// Magical rune circles orbiting the cell with glowing symbols.
+
+registerEffect("runic", "Runic", "Orbiting magical rune circles and arcane symbols", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const runeCount = sr < 30 ? 4 : 8;
+  const spin = time * 0.6;
+  for (let i = 0; i < runeCount; i++) {
+    const angle = (i / runeCount) * PI2 + spin;
+    const dist = radius * 1.12;
+    const px = Math.cos(angle) * dist;
+    const py = Math.sin(angle) * dist;
+    const sz = Math.max(4, radius * 0.06);
+    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(time * 2 + i * 1.5));
+    // Rune circle
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, PI2);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${pulse * 0.6})`;
+    ctx.lineWidth = Math.max(1, sz * 0.15);
+    ctx.stroke();
+    // Inner cross symbol
+    if (sr > 25) {
+      const innerSz = sz * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(px - innerSz, py);
+      ctx.lineTo(px + innerSz, py);
+      ctx.moveTo(px, py - innerSz);
+      ctx.lineTo(px, py + innerSz);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${pulse * 0.8})`;
+      ctx.lineWidth = Math.max(0.8, sz * 0.1);
+      ctx.stroke();
+    }
+  }
+  // Connecting ring
+  ctx.strokeStyle = `rgba(${r},${g},${b},${0.08 + 0.04 * Math.sin(time * 1.5)})`;
+  ctx.lineWidth = Math.max(1.5, radius * 0.015);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.12, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Pixel Grid ─────────────────────────────────────────────
+// Retro pixelated border segments flickering in and out.
+
+registerEffect("pixel_grid", "Pixel Grid", "Retro pixel-art border with flickering blocks", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const blockCount = sr < 30 ? 16 : 28;
+  const blockSize = Math.max(3, radius * 0.06);
+  const glitchSeed = Math.floor(time * 5);
+  for (let i = 0; i < blockCount; i++) {
+    const angle = (i / blockCount) * PI2;
+    const dist = radius * 1.02;
+    const px = Math.cos(angle) * dist - blockSize / 2;
+    const py = Math.sin(angle) * dist - blockSize / 2;
+    const hash = ((glitchSeed * 17 + i * 89) & 0xFFFF) / 0xFFFF;
+    const on = hash > 0.3;
+    if (on) {
+      const bright = 0.3 + hash * 0.6;
+      ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
+      ctx.fillRect(px, py, blockSize, blockSize);
+    }
+  }
+  // Second layer offset (if high LOD)
+  if (sr > 35) {
+    for (let i = 0; i < blockCount; i++) {
+      const angle = (i / blockCount) * PI2 + PI2 / blockCount / 2;
+      const dist = radius * 1.08;
+      const px = Math.cos(angle) * dist - blockSize * 0.4;
+      const py = Math.sin(angle) * dist - blockSize * 0.4;
+      const hash = ((glitchSeed * 31 + i * 53) & 0xFFFF) / 0xFFFF;
+      if (hash > 0.5) {
+        ctx.fillStyle = `rgba(${r},${g},${b},${hash * 0.3})`;
+        ctx.fillRect(px, py, blockSize * 0.8, blockSize * 0.8);
+      }
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Diamond Dust ───────────────────────────────────────────
+// Tiny sparkling diamond shapes drifting around the cell.
+
+registerEffect("diamond_dust", "Diamond Dust", "Tiny brilliant diamonds sparkling around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const count = sr < 30 ? 8 : 16;
+  for (let i = 0; i < count; i++) {
+    const seed = i * 41.3;
+    const orbit = time * (0.3 + (i % 3) * 0.15) + seed;
+    const dist = radius * (1.02 + 0.15 * Math.sin(time * 0.6 + seed));
+    const px = Math.cos(orbit) * dist;
+    const py = Math.sin(orbit) * dist;
+    const sz = Math.max(2, radius * 0.02);
+    const sparkle = Math.abs(Math.sin(time * 5 + seed * 2));
+    const hue = (seed * 30 + time * 60) % 360;
+    // Diamond shape (4 points)
+    ctx.beginPath();
+    ctx.moveTo(px, py - sz);
+    ctx.lineTo(px + sz * 0.5, py);
+    ctx.lineTo(px, py + sz * 0.6);
+    ctx.lineTo(px - sz * 0.5, py);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${hue}, 60%, 80%, ${sparkle * 0.6})`;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${hue}, 80%, 95%, ${sparkle * 0.8})`;
+    ctx.lineWidth = Math.max(0.5, sz * 0.1);
+    ctx.stroke();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Inferno ────────────────────────────────────────────────
+// Intense blazing fire ring — layered animated rings of flame.
+
+registerEffect("inferno", "Inferno", "Intense blazing fire engulfing your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const rings = sr < 30 ? 2 : 3;
+  const segments = sr < 40 ? 24 : 36;
+  for (let ring = 0; ring < rings; ring++) {
+    const baseDist = radius * (1.0 + ring * 0.04);
+    const phase = time * (3 + ring) + ring * 1.5;
+    ctx.beginPath();
+    for (let s = 0; s <= segments; s++) {
+      const angle = (s / segments) * PI2;
+      const flame = Math.abs(Math.sin(angle * 6 + phase)) * radius * 0.05 +
+                    Math.abs(Math.sin(angle * 10 + phase * 1.3)) * radius * 0.03;
+      const dist = baseDist + flame;
+      const px = Math.cos(angle) * dist;
+      const py = Math.sin(angle) * dist;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const g = ring === 0 ? 80 : ring === 1 ? 40 : 20;
+    const alpha = 0.4 - ring * 0.1;
+    ctx.strokeStyle = `rgba(255,${g},0,${alpha})`;
+    ctx.lineWidth = Math.max(3, radius * 0.04);
+    ctx.stroke();
+  }
+  // Bright core ring
+  ctx.strokeStyle = `rgba(255,200,50,${0.15 + 0.1 * Math.sin(time * 4)})`;
+  ctx.lineWidth = Math.max(2, radius * 0.025);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.01, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Spectral ───────────────────────────────────────────────
+// Ghost-like afterimage rings expanding and fading.
+
+registerEffect("spectral", "Spectral", "Ghostly afterimage rings expanding from your cell", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const ringCount = sr < 30 ? 3 : 5;
+  for (let i = 0; i < ringCount; i++) {
+    const cycle = ((time * 0.8 + i * (1.0 / ringCount)) % 1.0);
+    const expandDist = radius * (1.0 + cycle * 0.3);
+    const alpha = (1 - cycle) * 0.35;
+    if (alpha < 0.01) continue;
+    ctx.beginPath();
+    ctx.arc(0, 0, expandDist, 0, PI2);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.lineWidth = Math.max(2, radius * 0.03 * (1 - cycle));
+    ctx.stroke();
+  }
+  // Core glow
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.1)`;
+  ctx.lineWidth = Math.max(4, radius * 0.06);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.02, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Gravity Well ───────────────────────────────────────────
+// Space-time distortion ripple rings converging inward.
+
+registerEffect("gravity_well", "Gravity Well", "Space-time distortion ripples converging inward", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const ringCount = sr < 30 ? 3 : 5;
+  for (let i = 0; i < ringCount; i++) {
+    const cycle = ((time * 0.5 + i * (1.0 / ringCount)) % 1.0);
+    // Converge inward (large → small)
+    const dist = radius * (1.3 - cycle * 0.28);
+    const alpha = cycle * (1 - cycle) * 1.5;
+    if (alpha < 0.01) continue;
+    // Slight wobble
+    const segments = sr < 40 ? 20 : 32;
+    ctx.beginPath();
+    for (let s = 0; s <= segments; s++) {
+      const angle = (s / segments) * PI2;
+      const wobble = Math.sin(angle * 4 + time * 3 + i) * radius * 0.01 * cycle;
+      const d = dist + wobble;
+      const px = Math.cos(angle) * d;
+      const py = Math.sin(angle) * d;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `rgba(140,100,255,${alpha * 0.3})`;
+    ctx.lineWidth = Math.max(1.5, radius * 0.02);
+    ctx.stroke();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Cyberpunk ──────────────────────────────────────────────
+// Neon circuit-board traces running around the cell.
+
+registerEffect("cyberpunk", "Cyberpunk", "Neon circuit-board traces around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  ctx.lineCap = "round";
+  const circuits = sr < 30 ? 4 : 8;
+  for (let i = 0; i < circuits; i++) {
+    const startAngle = (i / circuits) * PI2 + time * 0.3;
+    const arcLen = 0.15 + 0.15 * Math.sin(time + i * 1.5);
+    const dist = radius * (1.04 + 0.03 * Math.sin(time * 2 + i));
+    const segments = 6;
+    const hue = (i * 45 + time * 30) % 360;
+    const alpha = 0.5 + 0.3 * Math.sin(time * 3 + i * 2);
+    ctx.beginPath();
+    for (let s = 0; s <= segments; s++) {
+      const t = s / segments;
+      const a = startAngle + t * arcLen;
+      // Stepped offsets for circuit look
+      const step = (s % 2 === 0) ? 0 : radius * 0.03;
+      const d = dist + step;
+      const px = Math.cos(a) * d;
+      const py = Math.sin(a) * d;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
+    ctx.lineWidth = Math.max(1.5, radius * 0.015);
+    ctx.stroke();
+    // Node dot at start
+    ctx.beginPath();
+    ctx.arc(Math.cos(startAngle) * dist, Math.sin(startAngle) * dist, Math.max(2, radius * 0.015), 0, PI2);
+    ctx.fillStyle = `hsla(${hue}, 100%, 70%, ${alpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Dragon Breath ──────────────────────────────────────────
+// Fire-breath particles erupting outward.
+
+const dragonStates = new Map<string, { particles: { angle: number; dist: number; speed: number; size: number; life: number; maxLife: number; hue: number }[]; timer: number }>();
+
+registerEffect("dragonbreath", "Dragon Breath", "Erupting fire-breath particles from your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  const cellKey = (ctx as unknown as { _effectCellId?: number })._effectCellId?.toString() ?? "default";
+  let state = dragonStates.get(cellKey);
+  if (!state) { state = { particles: [], timer: 0 }; dragonStates.set(cellKey, state); }
+  const maxP = sr < 30 ? 12 : 24;
+  // Spawn
+  if (time - state.timer > 0.06 && state.particles.length < maxP) {
+    state.timer = time;
+    state.particles.push({
+      angle: Math.random() * PI2,
+      dist: radius * 1.0,
+      speed: radius * (0.3 + Math.random() * 0.4),
+      size: 0.6 + Math.random() * 0.8,
+      life: 0, maxLife: 0.5 + Math.random() * 0.6,
+      hue: 10 + Math.random() * 30,
+    });
+  }
+  ctx.save();
+  const dt = 0.016; // approx frame
+  let w = 0;
+  for (let i = 0; i < state.particles.length; i++) {
+    const p = state.particles[i];
+    p.life += dt;
+    if (p.life >= p.maxLife) continue;
+    p.dist += p.speed * dt;
+    if (w !== i) state.particles[w] = state.particles[i];
+    w++;
+    const progress = p.life / p.maxLife;
+    const alpha = (1 - progress) * 0.7;
+    const sz = Math.max(2, radius * 0.025) * p.size * (1 + progress * 0.5);
+    const px = Math.cos(p.angle) * p.dist;
+    const py = Math.sin(p.angle) * p.dist;
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, PI2);
+    ctx.fillStyle = `hsla(${p.hue}, 100%, ${50 + progress * 20}%, ${alpha})`;
+    ctx.fill();
+  }
+  state.particles.length = w;
+  // Hot ring
+  ctx.strokeStyle = `rgba(255,80,0,${0.1 + 0.06 * Math.sin(time * 3)})`;
+  ctx.lineWidth = Math.max(4, radius * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.02, 0, PI2);
+  ctx.stroke();
+  ctx.restore();
+}, "premium");
+
+// ── Cherry Rain ────────────────────────────────────────────
+// Falling cherry blossoms with gentle rain-drop streaks.
+
+registerEffect("cherry_rain", "Cherry Rain", "Cherry blossoms and soft rain falling around your cell", (ctx, radius, _r, _g, _b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const petalCount = sr < 30 ? 6 : 12;
+  // Rain streaks
+  if (sr > 20) {
+    ctx.strokeStyle = `rgba(160,200,255,0.15)`;
+    ctx.lineWidth = Math.max(0.8, radius * 0.005);
+    for (let i = 0; i < 10; i++) {
+      const seed = i * 67.3;
+      const x = Math.sin(seed) * radius * 1.2;
+      const fallY = ((time * 2 + seed * 0.01) % 1.0);
+      const y1 = -radius * 1.3 + fallY * radius * 2.6;
+      const y2 = y1 + radius * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(x, y1);
+      ctx.lineTo(x, y2);
+      ctx.stroke();
+    }
+  }
+  // Cherry blossoms
+  for (let i = 0; i < petalCount; i++) {
+    const seed = i * 37.9;
+    const x = Math.sin(seed) * radius * 1.1 + Math.sin(time * 0.8 + seed) * radius * 0.1;
+    const fallCycle = ((time * 0.25 + seed * 0.01) % 1.0);
+    const y = -radius * 1.3 + fallCycle * radius * 2.6;
+    const alpha = Math.sin(fallCycle * Math.PI) * 0.65;
+    const sz = Math.max(2, radius * 0.02);
+    if (alpha > 0.02) {
+      ctx.beginPath();
+      ctx.arc(x, y, sz, 0, PI2);
+      ctx.fillStyle = `rgba(255,${160 + Math.floor(Math.sin(seed) * 30)},${180 + Math.floor(Math.sin(seed * 2) * 20)},${alpha})`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}, "premium");
+
+// ── Galaxy ─────────────────────────────────────────────────
+// Rotating galaxy with spiral arms and embedded stars.
+
+registerEffect("galaxy", "Galaxy", "A rotating galaxy with spiral arms around your cell", (ctx, radius, r, g, b, time, sr) => {
+  if (sr < 8) return;
+  ctx.save();
+  const arms = 2;
+  const starsPerArm = sr < 30 ? 8 : 16;
+  const spin = time * 0.4;
+  for (let a = 0; a < arms; a++) {
+    const armBase = (a / arms) * PI2 + spin;
+    for (let s = 0; s < starsPerArm; s++) {
+      const t = s / starsPerArm;
+      const spiralAngle = armBase + t * 3.5;
+      const dist = radius * (0.9 + t * 0.4);
+      const spread = radius * 0.04 * t;
+      const px = Math.cos(spiralAngle) * dist + Math.sin(s * 7.3) * spread;
+      const py = Math.sin(spiralAngle) * dist + Math.cos(s * 7.3) * spread;
+      const twinkle = 0.3 + 0.7 * Math.abs(Math.sin(time * 3 + s * 2 + a));
+      const sz = Math.max(1, radius * 0.012 * (1 - t * 0.3));
+      ctx.beginPath();
+      ctx.arc(px, py, sz, 0, PI2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${twinkle * 0.6})`;
+      ctx.fill();
+    }
+  }
+  // Central glow
+  const grad = ctx.createRadialGradient(0, 0, radius * 0.85, 0, 0, radius * 1.1);
+  grad.addColorStop(0, `rgba(${r},${g},${b},0.06)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.1, 0, PI2);
+  ctx.fill();
+  ctx.restore();
+}, "premium");
+
 // ── Cleanup ────────────────────────────────────────────────
 // Remove per-cell effect state for cells that no longer exist.
 
 export function cleanupEffectState(activeCellIds: Set<number>) {
-  const maps: Map<string, unknown>[] = [starStates, boltStates, petalStates, frostStates, smokeStates, flameStates, plasmaStates, fairyStates, toxicStates, flareStates, autumnStates, bubbleStates];
+  const maps: Map<string, unknown>[] = [starStates, boltStates, petalStates, frostStates, smokeStates, flameStates, plasmaStates, fairyStates, toxicStates, flareStates, autumnStates, bubbleStates, stormStates, dragonStates];
   for (const m of maps) {
     for (const key of m.keys()) {
       const id = parseInt(key, 10);
