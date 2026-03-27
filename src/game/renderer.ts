@@ -21,6 +21,23 @@ const TRAIL_MIN_DISTANCE = 2;      // min distance² to record a new point
 const TRAIL_ALPHA = 0.30;          // base opacity of the trail fill
 const TRAIL_WIDTH_FACTOR = 1.0;    // trail width at head = full cell radius
 
+// Confetti particle type
+interface ConfettiParticle {
+  x: number; y: number;
+  vx: number; vy: number;
+  size: number;
+  color: string;
+  rotation: number;
+  rotSpeed: number;
+  alpha: number;
+}
+
+const CONFETTI_COLORS = [
+  "#ff3b3b", "#ff9500", "#ffd60a", "#30d158",
+  "#00c7be", "#5ac8fa", "#007aff", "#af52de",
+  "#ff2d55", "#ffffff", "#64d2ff",
+];
+
 const THEMES = {
   dark: {
     bg: "#111a22",
@@ -84,6 +101,11 @@ export class Renderer {
 
   // Black hole warp state (computed once per frame in render())
   private blackholes: { x: number; y: number; size: number; id: number }[] = [];
+
+  // Confetti celebration state
+  private confettiParticles: ConfettiParticle[] = [];
+  private confettiActive = false;
+  private confettiSpawnEnd = 0; // stop spawning after this timestamp
 
   constructor(canvas: HTMLCanvasElement, state: GameState, settings: Settings) {
     this.canvas = canvas;
@@ -493,6 +515,11 @@ export class Renderer {
 
     // Draw BR HUD in screen space
     this.drawBattleRoyaleHUD(ctx, cw, ch);
+
+    // Confetti overlay (screen space)
+    if (this.confettiActive || this.confettiParticles.length > 0) {
+      this.updateAndDrawConfetti(ctx, cw, ch);
+    }
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D) {
@@ -1211,6 +1238,66 @@ export class Renderer {
     }
 
     ctx.restore();
+  }
+
+  /** Trigger a confetti burst celebration. */
+  triggerConfetti() {
+    this.confettiActive = true;
+    this.confettiSpawnEnd = performance.now() + 4000; // spawn particles for 4 seconds
+  }
+
+  /** Update and draw confetti particles (screen space). */
+  private updateAndDrawConfetti(ctx: CanvasRenderingContext2D, cw: number, ch: number) {
+    const now = performance.now();
+
+    // Spawn new particles while active
+    if (now < this.confettiSpawnEnd) {
+      const count = 3; // particles per frame
+      for (let i = 0; i < count; i++) {
+        this.confettiParticles.push({
+          x: Math.random() * cw,
+          y: -10,
+          vx: (Math.random() - 0.5) * 4,
+          vy: Math.random() * 2 + 1.5,
+          size: Math.random() * 6 + 4,
+          color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+          rotation: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.15,
+          alpha: 1,
+        });
+      }
+    } else {
+      this.confettiActive = false;
+    }
+
+    // Update and draw
+    ctx.save();
+    const alive: ConfettiParticle[] = [];
+    for (const p of this.confettiParticles) {
+      p.x += p.vx;
+      p.vy += 0.04; // gravity
+      p.vx += (Math.random() - 0.5) * 0.3; // flutter
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+
+      // Fade out once past spawn phase
+      if (!this.confettiActive && p.y > ch * 0.5) {
+        p.alpha -= 0.015;
+      }
+
+      if (p.y < ch + 20 && p.alpha > 0) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        ctx.restore();
+        alive.push(p);
+      }
+    }
+    ctx.restore();
+    this.confettiParticles = alive;
   }
 
   /** Draw floating edge-of-viewport markers for off-screen clan members. */

@@ -24,6 +24,7 @@ import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
 import { TankLobby } from "./components/TankLobby";
 import type { TankLobbyState, TankCursorInfo } from "./protocol";
+import { onBRUpdate, onBRDeath, stopAllBRSounds } from "./game/sounds";
 import "./App.css";
 
 /** User profile returned by our server's /api/auth/me */
@@ -227,6 +228,7 @@ function GameApp() {
       onState: (s) => {
         setConnectionState(s);
         if (s === "disconnected") {
+          stopAllBRSounds();
           setAlive(false);
           setShowLobby(true);
           // Reset multibox server state — server doesn't know about us anymore
@@ -267,6 +269,10 @@ function GameApp() {
       },
       onClearAll: () => gs.onClearAll(),
       onClearMine: () => {
+        // Play random death sound if we died during an active BR
+        if (gs.battleRoyale && gs.battleRoyale.state === 2) {
+          onBRDeath();
+        }
         gs.onClearMine();
         setAlive(false);
 
@@ -311,6 +317,17 @@ function GameApp() {
       },
       onBattleRoyale: (br) => {
         gs.onBattleRoyale(br);
+        onBRUpdate(
+          br.state,
+          br.timeRemaining,
+          br.winnerName,
+          lastSpawnRef.current.name,
+          gs.alive,
+        );
+        // Confetti for the winner
+        if (br.state === 3 && br.winnerName && br.winnerName === lastSpawnRef.current.name) {
+          rendererRef.current?.triggerConfetti();
+        }
       },
       onPingReply: (ms) => {
         gs.latency = ms;
