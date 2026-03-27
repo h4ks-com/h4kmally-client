@@ -649,7 +649,7 @@ export class Connection {
         }
         powerupType = new TextDecoder().decode(bytes);
       }
-      const charges = r.readUint8();
+      const charges = r.readUint16();
       if (powerupType && charges > 0) {
         inventory[powerupType] = charges;
       }
