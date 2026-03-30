@@ -3,6 +3,7 @@ import type { GameCell } from "./state";
 import type { Settings } from "./settings";
 import { getSkinFile } from "../skinFileMap";
 import { getEffect, getEffectInfo, cleanupEffectState } from "./effects";
+import type { ReplayRecorder } from "./replay";
 
 const GRID_SPACING = 50;
 const BORDER_WIDTH = 6;
@@ -122,6 +123,9 @@ export class Renderer {
 
   // Spectator tooltip (screen space — shown when clicking a cell while spectating)
   private tooltip: { text: string; subtext: string; screenX: number; screenY: number; expires: number } | null = null;
+
+  // Replay recorder (set externally)
+  replayRecorder: ReplayRecorder | null = null;
 
   constructor(canvas: HTMLCanvasElement, state: GameState, settings: Settings) {
     this.canvas = canvas;
@@ -398,6 +402,11 @@ export class Renderer {
       this.updateCamera(dt);
       this.updateTrails();
       this.render();
+
+      // Record frame for death replay (rate-limited internally)
+      if (this.replayRecorder) {
+        this.replayRecorder.record(this.state);
+      }
 
       // Periodic effect state cleanup (every ~120 frames)
       this.frameCount++;

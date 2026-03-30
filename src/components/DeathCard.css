@@ -22,8 +22,13 @@
   text-align: center;
   color: #fff;
   min-width: 320px;
+  max-width: 90vw;
   box-shadow: 0 8px 32px rgba(233, 69, 96, 0.3);
   animation: deathCardSlide 0.4s ease-out;
+}
+
+.death-card-wide {
+  min-width: 620px;
 }
 
 @keyframes deathCardSlide {
@@ -98,4 +103,156 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ── Replay viewer ────────────────────────────────────────── */
+
+.replay-container {
+  margin-bottom: 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.replay-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #111a22;
+}
+
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.replay-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.replay-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.replay-scrubber {
+  flex: 1;
+  height: 4px;
+  accent-color: #e94560;
+  cursor: pointer;
+}
+
+.replay-download-btn {
+  margin-left: auto;
+  background: rgba(233, 69, 96, 0.2);
+  border-color: rgba(233, 69, 96, 0.4);
+  white-space: nowrap;
+}
+
+.replay-download-btn:hover:not(:disabled) {
+  background: rgba(233, 69, 96, 0.35);
+}
+
+.replay-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── View Playback button (shown before replay opens) ──── */
+
+.view-playback-btn {
+  display: block;
+  margin: 0 auto 16px;
+  padding: 8px 20px;
+  font-size: 14px;
+  background: rgba(233, 69, 96, 0.2);
+  border-color: rgba(233, 69, 96, 0.4);
+}
+
+.view-playback-btn:hover {
+  background: rgba(233, 69, 96, 0.35);
+}
+
+/* ── Share dropdown ─────────────────────────────────────── */
+
+.share-dropdown-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.share-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  min-width: 120px;
+}
+
+.share-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.share-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.share-dropdown-item + .share-dropdown-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Share link row ─────────────────────────────────────── */
+
+.share-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.share-link-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #64d2ff;
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+  font-family: monospace;
+}
+
+.share-link-input:focus {
+  border-color: rgba(100, 210, 255, 0.4);
+}
+
+.share-copy-btn {
+  padding: 4px 8px;
+  font-size: 14px;
+  min-width: 32px;
 }

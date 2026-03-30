@@ -24,6 +24,8 @@ import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
 import { TankLobby } from "./components/TankLobby";
 import DeathCard from "./components/DeathCard";
+import type { ReplayFrame } from "./game/replay";
+import { ReplayRecorder } from "./game/replay";
 import type { TankLobbyState, TankCursorInfo } from "./protocol";
 import { onBRUpdate, onBRDeath, stopAllBRSounds } from "./game/sounds";
 import "./App.css";
@@ -68,6 +70,7 @@ function GameApp() {
   const connRef = useRef<Connection | null>(null);
   const stateRef = useRef<GameState>(new GameState());
   const rendererRef = useRef<Renderer | null>(null);
+  const replayRecorderRef = useRef<ReplayRecorder>(new ReplayRecorder());
   const mouseIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSpawnRef = useRef<{ name: string; skin: string; effect: string }>({ name: "unnamed", skin: "", effect: "" });
   const wsBaseUrlRef = useRef<string>("");
@@ -80,6 +83,7 @@ function GameApp() {
   const [alive, setAlive] = useState(false);
   const [showLobby, setShowLobby] = useState(true);
   const [showDeathCard, setShowDeathCard] = useState(false);
+  const [deathReplayFrames, setDeathReplayFrames] = useState<ReplayFrame[]>([]);
   const [showOptions, setShowOptions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -261,6 +265,11 @@ function GameApp() {
         gs.onAddMyCell(id);
         setAlive(true);
         setShowLobby(false);
+        // Reset replay recorder only on a fresh spawn (not mid-life splits).
+        // The recorder is frozen on death, so isFrozen means this is a new life.
+        if (replayRecorderRef.current.isFrozen) {
+          replayRecorderRef.current.reset();
+        }
         // If user wants multibox but it's not enabled yet, send toggle now that we're alive
         if (multiboxWantedRef.current && !multiboxEnabledRef.current) {
           connRef.current?.sendMultiboxToggle();
@@ -298,6 +307,9 @@ function GameApp() {
         } else {
           // Show death card if there are meaningful stats
           if (gs.lastDeathStats && gs.lastDeathStats.peakMass > 0) {
+            // Freeze replay buffer and pass to death card
+            const frames = replayRecorderRef.current.freeze();
+            setDeathReplayFrames(frames);
             setShowDeathCard(true);
           } else {
             setShowLobby(true);
@@ -382,6 +394,7 @@ function GameApp() {
     const gs = stateRef.current;
     const renderer = new Renderer(canvas, gs, loadSettings());
     rendererRef.current = renderer;
+    renderer.replayRecorder = replayRecorderRef.current;
     const stop = renderer.start();
 
     setupConnection();
@@ -806,12 +819,16 @@ function GameApp() {
           peakMass={stateRef.current.lastDeathStats.peakMass}
           cellsEaten={stateRef.current.lastDeathStats.cellsEaten}
           timeAlive={stateRef.current.lastDeathStats.timeAlive}
+          replayFrames={deathReplayFrames}
+          serverBaseUrl={serverBaseUrl}
           onPlayAgain={() => {
             setShowDeathCard(false);
+            setDeathReplayFrames([]);
             setShowLobby(true);
           }}
           onSpectate={() => {
             setShowDeathCard(false);
+            setDeathReplayFrames([]);
           }}
         />
       )}
