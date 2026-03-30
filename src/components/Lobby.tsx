@@ -58,6 +58,7 @@ interface LobbyProps {
   onOpenShop: () => void;
   onOpenMarketplace: () => void;
   onOpenClan: () => void;
+  onOpenBounty: () => void;
   sessionToken: string | null;
   userLevel: number;
   xpCurrent: number;
@@ -96,6 +97,7 @@ export function Lobby({
   onOpenShop,
   onOpenMarketplace,
   onOpenClan,
+  onOpenBounty,
   sessionToken,
   userLevel,
   xpCurrent,
@@ -333,6 +335,10 @@ export function Lobby({
 
           <button className="btn-shop" onClick={onOpenMarketplace} style={{ background: "rgba(20,90,50,0.55)", borderColor: "rgba(39,174,96,0.5)" }}>
             🏪 Marketplace
+          </button>
+
+          <button className="btn-shop" onClick={onOpenBounty} style={{ background: "rgba(90,20,30,0.55)", borderColor: "rgba(233,69,96,0.5)" }}>
+            🎯 Bounties
           </button>
 
           {isAdmin && (

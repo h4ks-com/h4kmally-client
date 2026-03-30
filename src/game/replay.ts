@@ -2,7 +2,7 @@
  * Client-side replay recorder.
  *
  * Captures snapshots of the visible game world into a fixed-size ring buffer
- * at ~30 fps, keeping the last 60 seconds. On death the buffer is frozen and
+ * at ~15 fps, keeping the last 30 seconds. On death the buffer is frozen and
  * handed to the DeathCard for playback.
  *
  * Each frame stores lightweight cell data: position, size, color, skin,
@@ -46,10 +46,10 @@ export interface ReplayFrame {
 
 // ── Constants ──────────────────────────────────────────────
 
-const FPS = 30;
-const INTERVAL_MS = 1000 / FPS; // ~33.3 ms
-const DURATION_SEC = 60;
-const MAX_FRAMES = FPS * DURATION_SEC; // 1800
+const FPS = 15;
+const INTERVAL_MS = 1000 / FPS; // ~66.7 ms
+const DURATION_SEC = 30;
+const MAX_FRAMES = FPS * DURATION_SEC; // 450
 
 /** Replay capture FPS — also used for playback timing. */
 export const REPLAY_FPS = FPS;
@@ -63,7 +63,7 @@ export class ReplayRecorder {
   private lastCapture = 0; // timestamp of last capture
   private frozen = false;  // true after death → no more writes
 
-  /** Call every render frame. Captures a snapshot at ~30 fps. */
+  /** Call every render frame. Captures a snapshot at ~15 fps. */
   record(state: GameState) {
     if (this.frozen) return;
     // Only record while the player is alive — skip lobby/spectator frames
@@ -73,10 +73,9 @@ export class ReplayRecorder {
     if (now - this.lastCapture < INTERVAL_MS) return;
     this.lastCapture = now;
 
-    // Snapshot all cells (skip tiny food to keep frames lean)
+    // Snapshot visible cells (skip very small food < 15 to keep frames lean)
     const cells: ReplayCell[] = [];
     for (const cell of state.cells.values()) {
-      // Skip very small food/eject mass (size < 15) to keep replay compact
       if (!cell.isPlayer && !cell.isVirus && cell.size < 15) continue;
 
       cells.push({
@@ -96,6 +95,24 @@ export class ReplayRecorder {
       });
     }
 
+    // Build myCellIds — reuse the array from the previous frame if unchanged
+    let myIds: number[];
+    const prevFrame = this.count > 0
+      ? this.frames[(this.head - 1 + MAX_FRAMES) % MAX_FRAMES]
+      : null;
+    if (prevFrame && prevFrame.myCellIds.length === state.myCellIds.size) {
+      // Quick check: same IDs?
+      let same = true;
+      let idx = 0;
+      for (const id of state.myCellIds) {
+        if (prevFrame.myCellIds[idx] !== id) { same = false; break; }
+        idx++;
+      }
+      myIds = same ? prevFrame.myCellIds : Array.from(state.myCellIds);
+    } else {
+      myIds = Array.from(state.myCellIds);
+    }
+
     const frame: ReplayFrame = {
       time: now,
       // Use the player's center of mass as camera position instead of the
@@ -105,7 +122,7 @@ export class ReplayRecorder {
       camY: state.camera.y,
       camZoom: state.cameraZoom,
       cells,
-      myCellIds: [...state.myCellIds],
+      myCellIds: myIds,
     };
 
     // If the player is alive, override camera to track their cells directly.
@@ -135,7 +152,7 @@ export class ReplayRecorder {
     this.head = (this.head + 1) % MAX_FRAMES;
   }
 
-  /** Freeze the buffer (call on death). Returns the ordered frames. */
+  /** Freeze the buffer (call on death). Returns the ordered frames (last 30s). */
   freeze(): ReplayFrame[] {
     this.frozen = true;
     if (this.count === 0) return [];
@@ -143,15 +160,21 @@ export class ReplayRecorder {
     // Linearize ring buffer into chronological order
     const ordered: ReplayFrame[] = [];
     if (this.count < MAX_FRAMES) {
-      // Haven't wrapped yet — frames are already in order
       for (let i = 0; i < this.count; i++) {
         ordered.push(this.frames[i]);
       }
     } else {
-      // Wrapped — oldest is at head, newest is at head-1
       for (let i = 0; i < MAX_FRAMES; i++) {
         ordered.push(this.frames[(this.head + i) % MAX_FRAMES]);
       }
+    }
+
+    // Enforce a hard time-based trim: keep only the final DURATION_SEC seconds
+    if (ordered.length > 0) {
+      const lastTime = ordered[ordered.length - 1].time;
+      const cutoffTime = lastTime - DURATION_SEC * 1000;
+      const startIdx = ordered.findIndex(f => f.time >= cutoffTime);
+      if (startIdx > 0) return ordered.slice(startIdx);
     }
     return ordered;
   }

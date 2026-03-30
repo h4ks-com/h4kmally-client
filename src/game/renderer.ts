@@ -13,7 +13,7 @@ const TEXT_FILL = "#fff";
 
 // Jelly physics constants
 const JELLY_POINTS_MIN = 5;
-const JELLY_POINTS_MAX = 50;
+const JELLY_POINTS_MAX = 32;
 const PI2 = Math.PI * 2;
 
 // Trail constants
@@ -112,6 +112,7 @@ export class Renderer {
 
   // Black hole warp state (computed once per frame in render())
   private blackholes: { x: number; y: number; size: number; id: number }[] = [];
+  private blackholeCellCount = -1; // track cell map size for cache invalidation
 
   // Confetti celebration state
   private confettiParticles: ConfettiParticle[] = [];
@@ -212,14 +213,33 @@ export class Renderer {
     this.skinCache.set(skinName, img);
   }
 
-  /** Collect all black hole cells for gravitational warp (call once per frame). */
+  /** Collect all black hole cells for gravitational warp.
+   *  Only rebuilds the list when cell count changes (fast cache). */
   private collectBlackholes() {
+    const cellCount = this.state.cells.size;
+    if (cellCount === this.blackholeCellCount && this.blackholes.length > 0) {
+      // Cell count unchanged and we have cached blackholes — update positions only
+      let valid = true;
+      for (let i = 0; i < this.blackholes.length; i++) {
+        const cell = this.state.cells.get(this.blackholes[i].id);
+        if (!cell || cell.effect !== "blackhole") { valid = false; break; }
+        this.blackholes[i].x = cell.x;
+        this.blackholes[i].y = cell.y;
+        this.blackholes[i].size = Math.max(cell.size, 1);
+      }
+      if (valid) {
+        this.blackholeCellCount = cellCount;
+        return;
+      }
+    }
+    // Full rebuild
     this.blackholes.length = 0;
     for (const cell of this.state.cells.values()) {
       if (cell.isPlayer && cell.effect === "blackhole") {
         this.blackholes.push({ x: cell.x, y: cell.y, size: Math.max(cell.size, 1), id: cell.id });
       }
     }
+    this.blackholeCellCount = cellCount;
   }
 
   /** Warp a world-space point toward nearby black holes. */
@@ -254,6 +274,9 @@ export class Renderer {
 
   /** Update trail positions for all cells. Call once per frame before render. */
   private updateTrails() {
+    // Skip entirely when trails are disabled
+    if (!this.settings.showTrails) return;
+
     const activeCells = this.state.cells;
 
     // Remove trails for dead cells
@@ -786,20 +809,57 @@ export class Renderer {
   }
 
   private drawCells(ctx: CanvasRenderingContext2D) {
-    // Sort cells by size (smallest first → drawn first → below larger cells)
+    // ── Pass 1: Batch-draw food/eject (no save/restore, no sort needed) ──
+    // Food is always the smallest and drawn underneath everything, so draw first.
+    // Batch by grouping into a single beginPath per color bucket, avoiding
+    // per-cell save/restore which is the largest Canvas2D overhead.
+    const foodCells: GameCell[] = [];
     const sorted = this.sortedCells;
     sorted.length = 0;
+
     for (const cell of this.state.cells.values()) {
-      // Always draw our own cells regardless of viewport
       const isOwned = this.state.myCellIds.has(cell.id) || this.state.multiCellIds.has(cell.id);
       if (!isOwned) {
-        // Viewport culling: skip cells entirely outside the visible area
+        // Viewport culling
         const margin = cell.size;
         if (cell.x + margin < this.viewLeft || cell.x - margin > this.viewRight ||
             cell.y + margin < this.viewTop || cell.y - margin > this.viewBottom) continue;
       }
-      sorted.push(cell);
+      // Separate food/eject (non-player, non-virus) for batched drawing
+      if (!cell.isPlayer && !cell.isVirus) {
+        foodCells.push(cell);
+      } else {
+        sorted.push(cell);
+      }
     }
+
+    // Draw food in batched groups by color (avoids per-cell save/restore)
+    // Group by color string to minimize fillStyle changes
+    if (foodCells.length > 0) {
+      let prevColor = "";
+      // Sort food by color string for batching (cheaper than canvas state thrash)
+      foodCells.sort((a, b) => {
+        const ca = a.color.r * 65536 + a.color.g * 256 + a.color.b;
+        const cb = b.color.r * 65536 + b.color.g * 256 + b.color.b;
+        return ca - cb;
+      });
+      ctx.beginPath();
+      for (const cell of foodCells) {
+        const colorStr = `rgb(${cell.color.r},${cell.color.g},${cell.color.b})`;
+        if (colorStr !== prevColor) {
+          // Flush previous batch
+          if (prevColor) ctx.fill();
+          ctx.beginPath();
+          ctx.fillStyle = colorStr;
+          prevColor = colorStr;
+        }
+        ctx.moveTo(cell.x + cell.size, cell.y);
+        ctx.arc(cell.x, cell.y, cell.size, 0, PI2);
+      }
+      if (prevColor) ctx.fill();
+    }
+
+    // ── Pass 2: Sort and draw player/virus cells (need full drawCell) ──
     sorted.sort((a, b) => a.size - b.size);
 
     for (const cell of sorted) {
@@ -966,6 +1026,19 @@ export class Renderer {
       this.drawCrown(ctx, drawSize);
     }
 
+    // Draw skull emoji on the cells of the player who killed us
+    if (cell.isPlayer && cell.name && drawSize > 20 && this.state.killerCellOwnerName &&
+        cell.name === this.state.killerCellOwnerName && !this.state.alive) {
+      const skullSize = Math.max(14, drawSize * 0.35);
+      ctx.font = `${skullSize}px Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      // Position below mass or name
+      const showMassHere = this.settings.showMass && drawSize > 40;
+      const skullY = showMassHere ? drawSize * 0.35 + skullSize * 0.6 : drawSize * 0.2 + skullSize * 0.5;
+      ctx.fillText("💀", 0, skullY);
+    }
+
     ctx.restore();
   }
 
@@ -989,20 +1062,19 @@ export class Renderer {
     const pts = cell.jellyPoints;
     const vel = cell.jellyVel;
 
-    // Adjust point count (add/remove randomly)
-    while (pts.length > targetPts) {
-      const idx = (Math.random() * pts.length) | 0;
-      pts.splice(idx, 1);
-      vel.splice(idx, 1);
+    // Adjust point count — avoid Array.splice (O(n)) for better perf.
+    // Downsizing: just truncate. Upsizing: push duplicates of last element.
+    if (pts.length > targetPts) {
+      pts.length = targetPts;
+      vel.length = targetPts;
     }
     if (pts.length === 0 && targetPts > 0) {
       pts.push(visualSize);
       vel.push(Math.random() - 0.5);
     }
     while (pts.length < targetPts) {
-      const idx = (Math.random() * pts.length) | 0;
-      pts.splice(idx, 0, pts[idx]);
-      vel.splice(idx, 0, vel[idx]);
+      pts.push(pts[pts.length - 1]);
+      vel.push(vel[vel.length - 1]);
     }
 
     // Simulate spring-mass jelly physics

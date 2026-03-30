@@ -9,6 +9,7 @@ interface DeathCardProps {
   peakMass: number;
   cellsEaten: number;
   timeAlive: number; // seconds
+  killerName?: string;
   replayFrames: ReplayFrame[];
   serverBaseUrl: string;
   onPlayAgain: () => void;
@@ -667,6 +668,7 @@ export default function DeathCard({
   peakMass,
   cellsEaten,
   timeAlive,
+  killerName,
   replayFrames,
   serverBaseUrl,
   onPlayAgain,
@@ -696,6 +698,11 @@ export default function DeathCard({
         onClick={(e) => e.stopPropagation()}
       >
         <h2>You Died</h2>
+        {killerName && (
+          <p className="death-card-killer">
+            Killed by <span className="killer-name">💀 {killerName}</span>
+          </p>
+        )}
 
         {hasReplay && (
           <ReplayCanvas frames={replayFrames} serverBaseUrl={serverBaseUrl} />

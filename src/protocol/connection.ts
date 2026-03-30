@@ -193,6 +193,12 @@ export class Connection {
   // Reconnect token (issued by server, used to resume session on reconnect)
   private reconnectToken: string | null = null;
 
+  // Tracks whether the current connection attempt used a reconnect token.
+  // If we connect with a token but the server doesn't restore our cells,
+  // the server was restarted and we need a hard page refresh.
+  private attemptedResumeWithToken = false;
+  private resumeCheckTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(cb: ConnectionCallbacks) {
     this.cb = cb;
   }
@@ -215,9 +221,11 @@ export class Connection {
 
     // Append reconnect token if available (for session resume)
     let connectUrl = url;
+    this.attemptedResumeWithToken = false;
     if (this.reconnectToken) {
       const sep = url.includes("?") ? "&" : "?";
       connectUrl = `${url}${sep}reconnect=${this.reconnectToken}`;
+      this.attemptedResumeWithToken = true;
     }
 
     this.ws = new WebSocket(connectUrl);
@@ -251,6 +259,10 @@ export class Connection {
   disconnect() {
     this.manualDisconnect = true;
     this.reconnectToken = null; // Clear token on manual disconnect
+    if (this.resumeCheckTimer) {
+      clearTimeout(this.resumeCheckTimer);
+      this.resumeCheckTimer = null;
+    }
     this.clearReconnectTimer();
     if (this.ws) {
       this.ws.onclose = null;
@@ -441,6 +453,19 @@ export class Connection {
 
     // Start ping loop
     this.pingInterval = setInterval(() => this.sendPing(), 2000);
+
+    // If we attempted to resume with a token, check whether the server
+    // actually restored our session. If no ADD_MY_CELL arrives within
+    // 1.5s, the server was restarted and we need a hard page refresh
+    // to clear stale client state.
+    if (this.attemptedResumeWithToken) {
+      this.attemptedResumeWithToken = false;
+      this.resumeCheckTimer = setTimeout(() => {
+        this.resumeCheckTimer = null;
+        console.warn("[WS] Session resume failed (server restarted?). Reloading page...");
+        window.location.reload();
+      }, 1500);
+    }
   }
 
   // ── Message dispatch ─────────────────────────────────────
@@ -464,9 +489,17 @@ export class Connection {
       case SERVER_CLEAR_MINE:
         this.cb.onClearMine?.();
         break;
-      case SERVER_ADD_MY_CELL:
+      case SERVER_ADD_MY_CELL: {
+        // If we were waiting to see if a session resume succeeded, cancel the
+        // reload timer — the server restored our cells, resume was successful.
+        if (this.resumeCheckTimer) {
+          clearTimeout(this.resumeCheckTimer);
+          this.resumeCheckTimer = null;
+          console.log("[WS] Session resumed successfully");
+        }
         this.cb.onAddMyCell?.(r.readUint32());
         break;
+      }
       case SERVER_ADD_MULTI_CELL:
         this.cb.onAddMultiCell?.(r.readUint32());
         break;
@@ -724,6 +757,10 @@ export class Connection {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
+    if (this.resumeCheckTimer) {
+      clearTimeout(this.resumeCheckTimer);
+      this.resumeCheckTimer = null;
+    }
     this.ws = null;
     this.shuffle = null;
     // If we have a reconnect token, preserve game state for seamless resume
@@ -773,9 +810,11 @@ export class Connection {
 
     // Append reconnect token to URL if available
     let reconnectUrl = this.lastUrl;
+    this.attemptedResumeWithToken = false;
     if (this.reconnectToken) {
       const sep = this.lastUrl.includes("?") ? "&" : "?";
       reconnectUrl = `${this.lastUrl}${sep}reconnect=${this.reconnectToken}`;
+      this.attemptedResumeWithToken = true;
     }
 
     this.ws = new WebSocket(reconnectUrl);
@@ -808,6 +847,10 @@ export class Connection {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+    if (this.resumeCheckTimer) {
+      clearTimeout(this.resumeCheckTimer);
+      this.resumeCheckTimer = null;
     }
     this.ws = null;
     this.shuffle = null;

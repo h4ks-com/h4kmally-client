@@ -91,6 +91,15 @@ export function Minimap({ state }: MinimapProps) {
     clanDots.push({ nx, ny, nr, skin: m.skin, name: m.name });
   }
 
+  // Death position marker (persists across lives until next death)
+  let deathMarker: { nx: number; ny: number } | null = null;
+  if (state.deathPosition) {
+    deathMarker = {
+      nx: ((state.deathPosition.x - border.left) / mapW) * MINIMAP_SIZE,
+      ny: ((state.deathPosition.y - border.top) / mapH) * MINIMAP_SIZE,
+    };
+  }
+
   return (
     <div className="minimap" style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}>
       <svg width={MINIMAP_SIZE} height={MINIMAP_SIZE}>
@@ -163,6 +172,22 @@ export function Minimap({ state }: MinimapProps) {
             strokeWidth={0.5}
           />
         ))}
+
+        {/* Death position marker */}
+        {deathMarker && (
+          <g>
+            <text
+              x={deathMarker.nx}
+              y={deathMarker.ny + 4}
+              fill="#ff4444"
+              fontSize={14}
+              fontFamily="Arial, sans-serif"
+              textAnchor="middle"
+              dominantBaseline="central"
+              style={{ filter: "drop-shadow(0 0 2px rgba(255,0,0,0.6))" }}
+            >💀</text>
+          </g>
+        )}
       </svg>
     </div>
   );

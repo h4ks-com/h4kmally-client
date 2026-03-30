@@ -24,6 +24,7 @@ import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
 import { TankLobby } from "./components/TankLobby";
 import DeathCard from "./components/DeathCard";
+import { BountyPanel } from "./components/BountyPanel";
 import type { ReplayFrame } from "./game/replay";
 import { ReplayRecorder } from "./game/replay";
 import type { TankLobbyState, TankCursorInfo } from "./protocol";
@@ -89,6 +90,7 @@ function GameApp() {
   const [showShop, setShowShop] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
   const [showClanPanel, setShowClanPanel] = useState(false);
+  const [showBountyPanel, setShowBountyPanel] = useState(false);
   const [score, setScore] = useState(0);
   const [latency, setLatency] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -819,6 +821,7 @@ function GameApp() {
           peakMass={stateRef.current.lastDeathStats.peakMass}
           cellsEaten={stateRef.current.lastDeathStats.cellsEaten}
           timeAlive={stateRef.current.lastDeathStats.timeAlive}
+          killerName={stateRef.current.lastDeathStats.killerName}
           replayFrames={deathReplayFrames}
           serverBaseUrl={serverBaseUrl}
           onPlayAgain={() => {
@@ -851,6 +854,7 @@ function GameApp() {
           onOpenShop={handleOpenShop}
           onOpenMarketplace={handleOpenMarketplace}
           onOpenClan={() => setShowClanPanel(true)}
+          onOpenBounty={() => setShowBountyPanel(true)}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           sessionToken={sessionToken}
@@ -967,6 +971,14 @@ function GameApp() {
               })
               .catch(() => {});
           }}
+        />
+      )}
+
+      {showBountyPanel && serverBaseUrl && (
+        <BountyPanel
+          serverBaseUrl={serverBaseUrl}
+          sessionToken={sessionToken}
+          onClose={() => setShowBountyPanel(false)}
         />
       )}
 

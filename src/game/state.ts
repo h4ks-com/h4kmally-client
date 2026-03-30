@@ -76,8 +76,13 @@ export class GameState {
   sessionSpawnTime: number = 0;
   sessionTimeAlive: number = 0; // seconds, computed on death
 
+  // Death tracking: who killed us and where
+  killerName: string = "";
+  killerCellOwnerName: string = ""; // name of the player whose cells we mark with skull
+  deathPosition: { x: number; y: number } | null = null;
+
   // Last death stats (frozen copy for death card display)
-  lastDeathStats: { peakMass: number; cellsEaten: number; timeAlive: number } | null = null;
+  lastDeathStats: { peakMass: number; cellsEaten: number; timeAlive: number; killerName: string } | null = null;
 
   get mapWidth(): number {
     return this.border.right - this.border.left;
@@ -98,6 +103,27 @@ export class GameState {
         // Track cells eaten by our player
         if (this.myCellIds.has(eat.eaterId) || this.multiCellIds.has(eat.eaterId)) {
           if (eatenCell.isPlayer) this.sessionCellsEaten++;
+        }
+        // Track killer: if one of our cells was eaten, check if it's the last one
+        if (this.myCellIds.has(eat.eatenId) || this.multiCellIds.has(eat.eatenId)) {
+          // Count how many of our cells remain after this eat
+          let remaining = 0;
+          for (const id of this.myCellIds) {
+            if (id !== eat.eatenId) remaining++;
+          }
+          for (const id of this.multiCellIds) {
+            if (id !== eat.eatenId) remaining++;
+          }
+          if (remaining === 0) {
+            // This was our last cell — the eater is our killer
+            const eaterCell = this.cells.get(eat.eaterId);
+            if (eaterCell && eaterCell.name) {
+              this.killerName = eaterCell.name;
+              this.killerCellOwnerName = eaterCell.name;
+            }
+            // Record death position (where our last cell was)
+            this.deathPosition = { x: eatenCell.x, y: eatenCell.y };
+          }
         }
         // Capture burst data before deletion
         if (eatenCell.size >= 20) { // only burst for non-trivial cells
@@ -190,6 +216,9 @@ export class GameState {
       this.sessionPeakMass = 0;
       this.sessionCellsEaten = 0;
       this.sessionSpawnTime = performance.now();
+      this.killerName = "";
+      this.killerCellOwnerName = "";
+      // deathPosition is intentionally NOT cleared — persists across lives for minimap marker
     }
     this.updateScore();
   }
@@ -212,12 +241,15 @@ export class GameState {
         peakMass: this.sessionPeakMass,
         cellsEaten: this.sessionCellsEaten,
         timeAlive: this.sessionTimeAlive,
+        killerName: this.killerName,
       };
     }
     this.myCellIds.clear();
     this.multiCellIds.clear();
     this.alive = false;
     this.score = 0;
+    // Note: killerName, killerCellOwnerName, deathPosition are NOT cleared here
+    // so they persist for the minimap death marker and skull emoji rendering
   }
 
   onLeaderboard(entries: LeaderboardEntry[]) {
@@ -263,9 +295,21 @@ export class GameState {
   interpolate(dt: number) {
     const lerpFactor = Math.min(1, dt * 12); // smooth factor
     for (const cell of this.cells.values()) {
-      cell.x += (cell.targetX - cell.x) * lerpFactor;
-      cell.y += (cell.targetY - cell.y) * lerpFactor;
-      cell.size += (cell.targetSize - cell.size) * lerpFactor;
+      // Skip cells that have already reached their target (e.g. stationary food)
+      const dx = cell.targetX - cell.x;
+      const dy = cell.targetY - cell.y;
+      const ds = cell.targetSize - cell.size;
+      if (dx === 0 && dy === 0 && ds === 0) continue;
+      // Fast-snap if close enough to avoid sub-pixel oscillation
+      if (dx * dx + dy * dy < 0.01 && ds * ds < 0.01) {
+        cell.x = cell.targetX;
+        cell.y = cell.targetY;
+        cell.size = cell.targetSize;
+        continue;
+      }
+      cell.x += dx * lerpFactor;
+      cell.y += dy * lerpFactor;
+      cell.size += ds * lerpFactor;
     }
   }
 

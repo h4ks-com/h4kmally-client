@@ -1,0 +1,257 @@
+.bounty-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  backdrop-filter: blur(4px);
+}
+
+.bounty-panel {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 24px 28px;
+  max-width: 520px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.bounty-panel h2 {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bounty-panel .subtitle {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.bounty-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.bounty-tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.bounty-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bounty-tab.active {
+  background: rgba(233, 69, 96, 0.2);
+  border-color: rgba(233, 69, 96, 0.5);
+  color: #e94560;
+}
+
+.bounty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bounty-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.bounty-target {
+  font-weight: bold;
+  font-size: 15px;
+  color: #e94560;
+}
+
+.bounty-reward {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+.bounty-poster {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.bounty-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.bounty-status.active {
+  background: rgba(67, 169, 82, 0.2);
+  color: #43a952;
+}
+
+.bounty-status.pending_payment {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.bounty-status.claimed {
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560;
+}
+
+.bounty-status.cancelled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bounty-cancel-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.bounty-cancel-btn:hover {
+  background: rgba(233, 69, 96, 0.3);
+}
+
+/* Create bounty form */
+.bounty-create {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 16px;
+}
+
+.bounty-create h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.bounty-form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.bounty-form-row label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 80px;
+}
+
+.bounty-form-row input,
+.bounty-form-row select {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.bounty-form-row input:focus,
+.bounty-form-row select:focus {
+  border-color: rgba(233, 69, 96, 0.5);
+}
+
+.bounty-submit-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #e94560;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 6px;
+}
+
+.bounty-submit-btn:hover {
+  background: #d63b54;
+}
+
+.bounty-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bounty-error {
+  color: #e94560;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.bounty-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  padding: 20px;
+}
+
+.bounty-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.bounty-close-btn:hover {
+  color: #fff;
+}
+
+.bounty-panel-inner {
+  position: relative;
+}
+
+.bounty-payment-link {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(67, 169, 82, 0.15);
+  border: 1px solid rgba(67, 169, 82, 0.4);
+  color: #43a952;
+  text-align: center;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: bold;
+  transition: all 0.15s;
+}
+
+.bounty-payment-link:hover {
+  background: rgba(67, 169, 82, 0.25);
+}
