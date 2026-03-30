@@ -801,11 +801,11 @@ function GameApp() {
         />
       )}
 
-      {showDeathCard && gameStateRef.current?.lastDeathStats && (
+      {showDeathCard && stateRef.current?.lastDeathStats && (
         <DeathCard
-          peakMass={gameStateRef.current.lastDeathStats.peakMass}
-          cellsEaten={gameStateRef.current.lastDeathStats.cellsEaten}
-          timeAlive={gameStateRef.current.lastDeathStats.timeAlive}
+          peakMass={stateRef.current.lastDeathStats.peakMass}
+          cellsEaten={stateRef.current.lastDeathStats.cellsEaten}
+          timeAlive={stateRef.current.lastDeathStats.timeAlive}
           onPlayAgain={() => {
             setShowDeathCard(false);
             setShowLobby(true);
