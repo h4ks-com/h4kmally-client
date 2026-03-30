@@ -91,7 +91,7 @@ interface MarketplacePendingPurchase {
   createdAt: number;
 }
 
-type Tab = "users" | "online" | "ipbans" | "skins" | "marketplace" | "replay";
+type Tab = "users" | "online" | "ipbans" | "skins" | "marketplace" | "replay" | "bots";
 
 export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("online");
@@ -115,6 +115,9 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [mpStatusFilter, setMpStatusFilter] = useState<"all" | "active" | "sold" | "cancelled" | "reversed">("all");
   const [botCount, setBotCount] = useState(0);
   const [botCountInput, setBotCountInput] = useState("");
+  const [botList, setBotList] = useState<{ id: number; name: string; skin: string; effect: string; alive: boolean; mass: number; difficulty: string }[]>([]);
+  const [editingBot, setEditingBot] = useState<number | null>(null);
+  const [botEdit, setBotEdit] = useState<{ name: string; skin: string; effect: string; difficulty: string }>({ name: "", skin: "", effect: "", difficulty: "normal" });
   const [reversalNote, setReversalNote] = useState<Record<string, string>>({});
 
   const api = useCallback(
@@ -385,6 +388,7 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     try {
       const data = await api("bots");
       setBotCount(data.count ?? 0);
+      if (data.bots) setBotList(data.bots);
     } catch { /* ignore */ }
   }, [api]);
 
@@ -426,6 +430,18 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
       setBotCount(n);
       setBotCountInput("");
       showMsg("success", `Bot count set to ${n}`);
+      fetchBotCount();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
+  const handleBotUpdate = async (id: number) => {
+    try {
+      await api("bots/update", "POST", { id, ...botEdit });
+      showMsg("success", "Bot updated");
+      setEditingBot(null);
+      fetchBotCount();
     } catch (e: unknown) {
       showMsg("error", (e as Error).message);
     }
@@ -537,6 +553,12 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
           >
             Replay
           </button>
+          <button
+            className={`admin-tab ${tab === "bots" ? "active" : ""}`}
+            onClick={() => { setTab("bots"); fetchBotCount(); }}
+          >
+            Bots ({botCount})
+          </button>
         </div>
 
         <div className="admin-content">
@@ -608,7 +630,15 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
               <button className="admin-btn" onClick={handleBotSetCount}>
                 Set Count
               </button>
-              <button className="admin-btn" onClick={() => { setBotCountInput("0"); handleBotSetCount(); }}>
+              <button className="admin-btn" onClick={async () => {
+                try {
+                  await api("bots/set-count", "POST", { count: 0 });
+                  setBotCount(0);
+                  setBotCountInput("");
+                  showMsg("success", "All bots removed");
+                  fetchBotCount();
+                } catch (e: unknown) { showMsg("error", (e as Error).message); }
+              }}>
                 Remove All
               </button>
             </div>
@@ -1272,6 +1302,68 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
 
           {tab === "replay" && (
             <ReplayViewer serverBaseUrl={serverBaseUrl} sessionToken={sessionToken} />
+          )}
+
+          {tab === "bots" && (
+            <>
+              <button className="admin-btn refresh" onClick={fetchBotCount} disabled={loading}>
+                {loading ? "Loading..." : "Refresh"}
+              </button>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Skin</th>
+                    <th>Effect</th>
+                    <th>Difficulty</th>
+                    <th>Status</th>
+                    <th>Mass</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {botList.map((b) => (
+                    <tr key={b.id}>
+                      {editingBot === b.id ? (
+                        <>
+                          <td><input value={botEdit.name} onChange={e => setBotEdit(p => ({ ...p, name: e.target.value }))} style={{ width: 100 }} /></td>
+                          <td><input value={botEdit.skin} onChange={e => setBotEdit(p => ({ ...p, skin: e.target.value }))} style={{ width: 80 }} /></td>
+                          <td><input value={botEdit.effect} onChange={e => setBotEdit(p => ({ ...p, effect: e.target.value }))} style={{ width: 80 }} /></td>
+                          <td>
+                            <select value={botEdit.difficulty} onChange={e => setBotEdit(p => ({ ...p, difficulty: e.target.value }))}>
+                              <option value="easy">Easy</option>
+                              <option value="normal">Normal</option>
+                              <option value="hard">Hard</option>
+                            </select>
+                          </td>
+                          <td><span className={`badge ${b.alive ? "online" : "offline"}`}>{b.alive ? "Alive" : "Dead"}</span></td>
+                          <td>{b.mass.toLocaleString()}</td>
+                          <td>
+                            <button className="admin-btn" onClick={() => handleBotUpdate(b.id)}>Save</button>
+                            <button className="admin-btn" onClick={() => setEditingBot(null)}>Cancel</button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{b.name || "(unnamed)"}</td>
+                          <td>{b.skin || "—"}</td>
+                          <td>{b.effect || "—"}</td>
+                          <td>{b.difficulty}</td>
+                          <td><span className={`badge ${b.alive ? "online" : "offline"}`}>{b.alive ? "Alive" : "Dead"}</span></td>
+                          <td>{b.mass.toLocaleString()}</td>
+                          <td>
+                            <button className="admin-btn" onClick={() => { setEditingBot(b.id); setBotEdit({ name: b.name, skin: b.skin, effect: b.effect, difficulty: b.difficulty }); }}>Edit</button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                  {botList.length === 0 && (
+                    <tr><td colSpan={7} style={{ textAlign: "center", opacity: 0.6 }}>No bots active</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </div>
