@@ -123,3 +123,29 @@ html, body, #root {
   color: rgba(255, 255, 255, 0.75);
   font-family: Arial, sans-serif;
 }
+
+/* Bounty on-me banner (in-game) */
+.bounty-on-me-banner {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(150, 20, 40, 0.35), rgba(200, 40, 60, 0.45));
+  border: 1px solid rgba(233, 69, 96, 0.6);
+  border-radius: 8px;
+  padding: 6px 18px;
+  color: #ff7b8f;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: Arial, sans-serif;
+  z-index: 60;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  animation: bounty-pulse 2s ease-in-out infinite;
+}
+
+@keyframes bounty-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}

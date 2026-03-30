@@ -255,3 +255,82 @@
 .bounty-payment-link:hover {
   background: rgba(67, 169, 82, 0.25);
 }
+
+/* Autocomplete dropdown */
+.bounty-autocomplete-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.bounty-autocomplete-wrapper input {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.bounty-autocomplete-wrapper input:focus {
+  border-color: rgba(233, 69, 96, 0.5);
+}
+
+.bounty-autocomplete-wrapper input.bounty-input-selected {
+  border-color: rgba(67, 169, 82, 0.5);
+  background: rgba(67, 169, 82, 0.08);
+}
+
+.bounty-clear-target {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.bounty-clear-target:hover {
+  color: #fff;
+}
+
+.bounty-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #1e1e3a;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  z-index: 650;
+}
+
+.bounty-dropdown-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.bounty-dropdown-item:hover {
+  background: rgba(233, 69, 96, 0.2);
+  color: #fff;
+}
+
+.bounty-dropdown-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}

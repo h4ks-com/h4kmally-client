@@ -14,6 +14,7 @@ interface DeathCardProps {
   serverBaseUrl: string;
   onPlayAgain: () => void;
   onSpectate: () => void;
+  onSetBounty?: (killerName: string) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -673,6 +674,7 @@ export default function DeathCard({
   serverBaseUrl,
   onPlayAgain,
   onSpectate,
+  onSetBounty,
 }: DeathCardProps) {
   // Auto-dismiss after 30 seconds (longer to allow watching replay)
   useEffect(() => {
@@ -702,6 +704,14 @@ export default function DeathCard({
           <p className="death-card-killer">
             Killed by <span className="killer-name">💀 {killerName}</span>
           </p>
+        )}
+        {killerName && onSetBounty && (
+          <button
+            className="death-card-btn bounty"
+            onClick={() => onSetBounty(killerName)}
+          >
+            🎯 Set a bounty on this player
+          </button>
         )}
 
         {hasReplay && (

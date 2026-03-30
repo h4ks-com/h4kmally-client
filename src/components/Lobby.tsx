@@ -59,6 +59,8 @@ interface LobbyProps {
   onOpenMarketplace: () => void;
   onOpenClan: () => void;
   onOpenBounty: () => void;
+  bountiesOnMeCount: number;
+  bountiesOnMeBeans: number;
   sessionToken: string | null;
   userLevel: number;
   xpCurrent: number;
@@ -98,6 +100,8 @@ export function Lobby({
   onOpenMarketplace,
   onOpenClan,
   onOpenBounty,
+  bountiesOnMeCount,
+  bountiesOnMeBeans,
   sessionToken,
   userLevel,
   xpCurrent,
@@ -340,6 +344,13 @@ export function Lobby({
           <button className="btn-shop" onClick={onOpenBounty} style={{ background: "rgba(90,20,30,0.55)", borderColor: "rgba(233,69,96,0.5)" }}>
             🎯 Bounties
           </button>
+
+          {bountiesOnMeCount > 0 && (
+            <div className="lobby-bounty-alert">
+              ⚠️ {bountiesOnMeCount} {bountiesOnMeCount === 1 ? "bounty" : "bounties"} on your head
+              {bountiesOnMeBeans > 0 && ` worth ${bountiesOnMeBeans} beans`}!
+            </div>
+          )}
 
           {isAdmin && (
             <button className="btn-admin" onClick={onOpenAdmin}>

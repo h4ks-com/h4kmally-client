@@ -612,6 +612,25 @@
   background: linear-gradient(135deg, #5a8fff, #4477ee);
 }
 
+/* Bounty on-me alert (lobby) */
+.lobby-bounty-alert {
+  background: linear-gradient(135deg, rgba(150, 20, 40, 0.4), rgba(200, 40, 60, 0.5));
+  border: 1px solid rgba(233, 69, 96, 0.6);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: #ff7b8f;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  animation: lobby-bounty-pulse 2s ease-in-out infinite;
+}
+
+@keyframes lobby-bounty-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
 /* ── Connecting status ── */
 .lobby-status {
   text-align: center;

@@ -91,6 +91,8 @@ function GameApp() {
   const [showMarketplace, setShowMarketplace] = useState(false);
   const [showClanPanel, setShowClanPanel] = useState(false);
   const [showBountyPanel, setShowBountyPanel] = useState(false);
+  const [bountyPrefillName, setBountyPrefillName] = useState("");
+  const [bountiesOnMe, setBountiesOnMe] = useState<{ count: number; totalBeans: number; totalPowerups: number }>({ count: 0, totalBeans: 0, totalPowerups: 0 });
   const [score, setScore] = useState(0);
   const [latency, setLatency] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -212,6 +214,30 @@ function GameApp() {
     const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
   }, [sessionToken, serverBaseUrl]); // intentionally omit showTokenReveal to prevent re-trigger
+
+  // Poll bounties targeting the current user (for in-game/lobby banner)
+  useEffect(() => {
+    if (!sessionToken || !serverBaseUrl) {
+      setBountiesOnMe({ count: 0, totalBeans: 0, totalPowerups: 0 });
+      return;
+    }
+    const poll = async () => {
+      try {
+        const res = await fetch(`${serverBaseUrl}/api/bounties/on-me?session=${sessionToken}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBountiesOnMe({
+            count: (data.bounties || []).length,
+            totalBeans: data.totalBeans || 0,
+            totalPowerups: data.totalPowerups || 0,
+          });
+        }
+      } catch { /* ignore */ }
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [sessionToken, serverBaseUrl]);
 
   const handleSignIn = useCallback(() => {
     authFailedRef.current = false;
@@ -833,6 +859,12 @@ function GameApp() {
             setShowDeathCard(false);
             setDeathReplayFrames([]);
           }}
+          onSetBounty={isAuthenticated ? (name) => {
+            setShowDeathCard(false);
+            setDeathReplayFrames([]);
+            setBountyPrefillName(name);
+            setShowBountyPanel(true);
+          } : undefined}
         />
       )}
 
@@ -854,7 +886,9 @@ function GameApp() {
           onOpenShop={handleOpenShop}
           onOpenMarketplace={handleOpenMarketplace}
           onOpenClan={() => setShowClanPanel(true)}
-          onOpenBounty={() => setShowBountyPanel(true)}
+          onOpenBounty={() => { setBountyPrefillName(""); setShowBountyPanel(true); }}
+          bountiesOnMeCount={bountiesOnMe.count}
+          bountiesOnMeBeans={bountiesOnMe.totalBeans}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           sessionToken={sessionToken}
@@ -899,6 +933,13 @@ function GameApp() {
       {alive && (
         <>
           <HUD score={score} latency={latency} leaderboard={leaderboard} levelUpText={levelUpText} />
+          {bountiesOnMe.count > 0 && (
+            <div className="bounty-on-me-banner">
+              🎯 {bountiesOnMe.count} {bountiesOnMe.count === 1 ? "bounty" : "bounties"} on your head
+              {bountiesOnMe.totalBeans > 0 && ` — ${bountiesOnMe.totalBeans} beans`}
+              {bountiesOnMe.totalPowerups > 0 && ` + ${bountiesOnMe.totalPowerups} powerup charges`}
+            </div>
+          )}
           <Minimap state={stateRef.current} />
           {multiboxEnabled && (
             <MultiboxIndicator activeSlot={multiboxSlot} multiAlive={multiAlive} />
@@ -978,7 +1019,8 @@ function GameApp() {
         <BountyPanel
           serverBaseUrl={serverBaseUrl}
           sessionToken={sessionToken}
-          onClose={() => setShowBountyPanel(false)}
+          onClose={() => { setShowBountyPanel(false); setBountyPrefillName(""); }}
+          prefillTargetName={bountyPrefillName}
         />
       )}
 
