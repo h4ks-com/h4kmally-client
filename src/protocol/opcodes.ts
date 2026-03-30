@@ -36,6 +36,7 @@ export const SERVER_CLAN_CHAT = 100;
 export const SERVER_CLAN_POSITIONS = 101;
 export const SERVER_BATTLE_ROYALE = 102;
 export const SERVER_POWERUP_STATE = 103;
+export const SERVER_RECONNECT_TOKEN = 104;
 export const SERVER_TANK_LOBBY = 34;
 export const SERVER_TANK_CURSORS = 35;
 export const SERVER_SPAWN_RESULT = 221;

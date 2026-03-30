@@ -37,6 +37,7 @@ import {
   SERVER_TANK_CURSORS,
   SERVER_SPAWN_RESULT,
   SERVER_PING_REPLY,
+  SERVER_RECONNECT_TOKEN,
 } from "./opcodes";
 
 // ── Event types ──────────────────────────────────────────────
@@ -189,6 +190,9 @@ export class Connection {
   private autoReconnect = true;
   private manualDisconnect = false;
 
+  // Reconnect token (issued by server, used to resume session on reconnect)
+  private reconnectToken: string | null = null;
+
   constructor(cb: ConnectionCallbacks) {
     this.cb = cb;
   }
@@ -209,7 +213,14 @@ export class Connection {
     this.handshakePhase = "version";
     this.shuffle = null;
 
-    this.ws = new WebSocket(url);
+    // Append reconnect token if available (for session resume)
+    let connectUrl = url;
+    if (this.reconnectToken) {
+      const sep = url.includes("?") ? "&" : "?";
+      connectUrl = `${url}${sep}reconnect=${this.reconnectToken}`;
+    }
+
+    this.ws = new WebSocket(connectUrl);
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onopen = () => {
@@ -239,6 +250,7 @@ export class Connection {
 
   disconnect() {
     this.manualDisconnect = true;
+    this.reconnectToken = null; // Clear token on manual disconnect
     this.clearReconnectTimer();
     if (this.ws) {
       this.ws.onclose = null;
@@ -498,6 +510,13 @@ export class Connection {
       case SERVER_PING_REPLY:
         this.cb.onPingReply?.(performance.now() - this.pingTimestamp);
         break;
+      case SERVER_RECONNECT_TOKEN: {
+        // Remaining bytes are the raw token string
+        const tokenBytes = new Uint8Array(data, r.offset);
+        this.reconnectToken = new TextDecoder().decode(tokenBytes);
+        console.log("[WS] Received reconnect token");
+        break;
+      }
       default:
         // unknown opcode — ignore
         break;
@@ -707,9 +726,11 @@ export class Connection {
     }
     this.ws = null;
     this.shuffle = null;
-    // Clear all game state so reconnecting starts fresh
-    this.cb.onClearAll?.();
-    this.cb.onClearMine?.();
+    // If we have a reconnect token, preserve game state for seamless resume
+    if (!this.reconnectToken) {
+      this.cb.onClearAll?.();
+      this.cb.onClearMine?.();
+    }
     this.setState("disconnected");
 
     // Auto-reconnect if not a manual disconnect
@@ -741,14 +762,23 @@ export class Connection {
     if (this.state === "connected" || this.state === "connecting") return;
     console.log("[WS] Attempting reconnect...");
 
-    // Use connect internals but set up a failure handler for 5s retry
-    this.cb.onClearAll?.();
-    this.cb.onClearMine?.();
+    // If we have a reconnect token, preserve game state for seamless resume
+    if (!this.reconnectToken) {
+      this.cb.onClearAll?.();
+      this.cb.onClearMine?.();
+    }
     this.setState("connecting");
     this.handshakePhase = "version";
     this.shuffle = null;
 
-    this.ws = new WebSocket(this.lastUrl);
+    // Append reconnect token to URL if available
+    let reconnectUrl = this.lastUrl;
+    if (this.reconnectToken) {
+      const sep = this.lastUrl.includes("?") ? "&" : "?";
+      reconnectUrl = `${this.lastUrl}${sep}reconnect=${this.reconnectToken}`;
+    }
+
+    this.ws = new WebSocket(reconnectUrl);
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onopen = () => {
@@ -781,8 +811,11 @@ export class Connection {
     }
     this.ws = null;
     this.shuffle = null;
-    this.cb.onClearAll?.();
-    this.cb.onClearMine?.();
+    // Preserve game state if we have a reconnect token (session may still resume)
+    if (!this.reconnectToken) {
+      this.cb.onClearAll?.();
+      this.cb.onClearMine?.();
+    }
     this.setState("disconnected");
 
     if (!this.manualDisconnect && this.lastUrl) {

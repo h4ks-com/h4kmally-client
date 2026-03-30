@@ -91,7 +91,7 @@ interface MarketplacePendingPurchase {
   createdAt: number;
 }
 
-type Tab = "users" | "online" | "ipbans" | "skins" | "marketplace";
+type Tab = "users" | "online" | "ipbans" | "skins" | "marketplace" | "replay";
 
 export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("online");
@@ -113,6 +113,8 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
   const [marketplaceListings, setMarketplaceListings] = useState<MarketplaceListing[]>([]);
   const [marketplacePending, setMarketplacePending] = useState<MarketplacePendingPurchase[]>([]);
   const [mpStatusFilter, setMpStatusFilter] = useState<"all" | "active" | "sold" | "cancelled" | "reversed">("all");
+  const [botCount, setBotCount] = useState(0);
+  const [botCountInput, setBotCountInput] = useState("");
   const [reversalNote, setReversalNote] = useState<Record<string, string>>({});
 
   const api = useCallback(
@@ -379,11 +381,19 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
     } catch { /* ignore */ }
   }, [api]);
 
+  const fetchBotCount = useCallback(async () => {
+    try {
+      const data = await api("bots");
+      setBotCount(data.count ?? 0);
+    } catch { /* ignore */ }
+  }, [api]);
+
   useEffect(() => {
     fetchBRStatus();
+    fetchBotCount();
     const iv = setInterval(fetchBRStatus, 3000);
     return () => clearInterval(iv);
-  }, [fetchBRStatus]);
+  }, [fetchBRStatus, fetchBotCount]);
 
   const handleBRStart = async () => {
     try {
@@ -400,6 +410,22 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
       await api("br/stop", "POST");
       showMsg("success", "Battle Royale stopped");
       fetchBRStatus();
+    } catch (e: unknown) {
+      showMsg("error", (e as Error).message);
+    }
+  };
+
+  const handleBotSetCount = async () => {
+    const n = parseInt(botCountInput, 10);
+    if (isNaN(n) || n < 0 || n > 200) {
+      showMsg("error", "Bot count must be 0-200");
+      return;
+    }
+    try {
+      await api("bots/set-count", "POST", { count: n });
+      setBotCount(n);
+      setBotCountInput("");
+      showMsg("success", `Bot count set to ${n}`);
     } catch (e: unknown) {
       showMsg("error", (e as Error).message);
     }
@@ -505,6 +531,12 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
           >
             Marketplace
           </button>
+          <button
+            className={`admin-tab ${tab === "replay" ? "active" : ""}`}
+            onClick={() => setTab("replay")}
+          >
+            Replay
+          </button>
         </div>
 
         <div className="admin-content">
@@ -556,6 +588,29 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
                   </select>
                 </label>
               )}
+            </div>
+          </div>
+
+          {/* Bot Controls */}
+          <div className="admin-br-controls" style={{ marginTop: 8 }}>
+            <strong>Bots</strong>
+            <span className="admin-br-status">{botCount} active</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <input
+                type="number"
+                min={0}
+                max={200}
+                value={botCountInput}
+                onChange={e => setBotCountInput(e.target.value)}
+                placeholder={String(botCount)}
+                style={{ width: 60, padding: "4px 6px" }}
+              />
+              <button className="admin-btn" onClick={handleBotSetCount}>
+                Set Count
+              </button>
+              <button className="admin-btn" onClick={() => { setBotCountInput("0"); handleBotSetCount(); }}>
+                Remove All
+              </button>
             </div>
           </div>
 
@@ -1214,8 +1269,196 @@ export function AdminPanel({ serverBaseUrl, sessionToken, onClose }: AdminPanelP
               </table>
             </>
           )}
+
+          {tab === "replay" && (
+            <ReplayViewer serverBaseUrl={serverBaseUrl} sessionToken={sessionToken} />
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Replay Viewer ──────────────────────────────────────────
+
+interface ReplayCell {
+  id: number; x: number; y: number; s: number;
+  r: number; g: number; b: number;
+  p?: boolean; v?: boolean; n?: string; e?: string;
+}
+interface ReplayFrame {
+  tick: number; ts: number; cells: ReplayCell[];
+}
+
+function ReplayViewer({ serverBaseUrl, sessionToken }: { serverBaseUrl: string; sessionToken: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [frames, setFrames] = useState<ReplayFrame[]>([]);
+  const [frameIdx, setFrameIdx] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [seconds, setSeconds] = useState(30);
+  const animRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+
+  const fetchReplay = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${serverBaseUrl}/api/admin/replay?session=${sessionToken}&seconds=${seconds}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data: ReplayFrame[] = await res.json();
+      setFrames(data);
+      setFrameIdx(0);
+      setPlaying(false);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load replay");
+    } finally {
+      setLoading(false);
+    }
+  }, [serverBaseUrl, sessionToken, seconds]);
+
+  // Draw current frame
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || frames.length === 0) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const frame = frames[frameIdx];
+    if (!frame) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Compute bounding box of all player cells to auto-center camera
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of frame.cells) {
+      if (c.x - c.s < minX) minX = c.x - c.s;
+      if (c.y - c.s < minY) minY = c.y - c.s;
+      if (c.x + c.s > maxX) maxX = c.x + c.s;
+      if (c.y + c.s > maxY) maxY = c.y + c.s;
+    }
+    if (!isFinite(minX)) { minX = -7071; minY = -7071; maxX = 7071; maxY = 7071; }
+
+    const worldW = maxX - minX || 14142;
+    const worldH = maxY - minY || 14142;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const scale = Math.min(W / worldW, H / worldH) * 0.9;
+
+    ctx.fillStyle = "#111a22";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+
+    // Draw cells
+    for (const c of frame.cells) {
+      ctx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.s, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw name for player cells
+      if (c.p && c.n) {
+        ctx.fillStyle = "#fff";
+        ctx.font = `${Math.max(12, c.s * 0.4)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(c.n, c.x, c.y);
+      }
+    }
+
+    ctx.restore();
+
+    // HUD overlay
+    const elapsed = ((frame.ts - frames[0].ts) / 1000).toFixed(1);
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, W, 28);
+    ctx.fillStyle = "#fff";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(`Frame ${frameIdx + 1}/${frames.length}  |  T+${elapsed}s  |  ${frame.cells.length} cells`, 8, 7);
+  }, [frames, frameIdx]);
+
+  // Playback animation
+  useEffect(() => {
+    if (!playing || frames.length === 0) return;
+    lastTimeRef.current = performance.now();
+    const step = () => {
+      const now = performance.now();
+      const dt = now - lastTimeRef.current;
+      // Advance frame at 5 FPS (200ms per frame = replay speed)
+      if (dt >= 200) {
+        lastTimeRef.current = now;
+        setFrameIdx(prev => {
+          const next = prev + 1;
+          if (next >= frames.length) {
+            setPlaying(false);
+            return prev;
+          }
+          return next;
+        });
+      }
+      animRef.current = requestAnimationFrame(step);
+    };
+    animRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [playing, frames.length]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <label>
+          Duration:
+          <select value={seconds} onChange={e => setSeconds(Number(e.target.value))} style={{ marginLeft: 4 }}>
+            <option value={10}>10s</option>
+            <option value={30}>30s</option>
+            <option value={60}>60s</option>
+          </select>
+        </label>
+        <button className="admin-btn" onClick={fetchReplay} disabled={loading}>
+          {loading ? "Loading..." : "Fetch Replay"}
+        </button>
+        {frames.length > 0 && (
+          <>
+            <button className="admin-btn" onClick={() => setPlaying(!playing)}>
+              {playing ? "⏸ Pause" : "▶ Play"}
+            </button>
+            <button className="admin-btn" onClick={() => { setFrameIdx(0); setPlaying(false); }}>
+              ⏮ Reset
+            </button>
+          </>
+        )}
+      </div>
+      {error && <div style={{ color: "#f87171" }}>{error}</div>}
+      {frames.length > 0 && (
+        <>
+          <input
+            type="range"
+            min={0}
+            max={frames.length - 1}
+            value={frameIdx}
+            onChange={e => { setFrameIdx(Number(e.target.value)); setPlaying(false); }}
+            style={{ width: "100%" }}
+          />
+          <canvas
+            ref={canvasRef}
+            width={700}
+            height={500}
+            style={{ background: "#111a22", borderRadius: 8, border: "1px solid #333", width: "100%" }}
+          />
+        </>
+      )}
+      {frames.length === 0 && !loading && (
+        <div style={{ color: "#888", padding: 20, textAlign: "center" }}>
+          Click "Fetch Replay" to load the last {seconds} seconds of game activity.
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,12 @@ export function getEffect(name: string): EffectRenderer | undefined {
   return effectMap.get(name);
 }
 
+/** Get the human-readable label and category for an effect ID. */
+export function getEffectInfo(id: string): { label: string; category: "free" | "premium" } | undefined {
+  const entry = EFFECT_LIST.find(e => e.id === id);
+  return entry ? { label: entry.label, category: entry.category } : undefined;
+}
+
 export const EFFECT_LIST: { id: string; label: string; description: string; category: "free" | "premium" }[] = [];
 
 function registerEffect(
@@ -86,12 +92,23 @@ registerEffect("neon", "Neon Pulse", "Pulsing neon glow around your cell", (ctx,
 });
 
 // ── Prismatic ──────────────────────────────────────────────
-// Rainbow refraction — LOD-scaled segment count, no shadow.
+// Rainbow refraction tinted by cell colour — shifts around the player's hue.
 
-registerEffect("prismatic", "Prismatic", "Shifting rainbow border", (ctx, radius, _r, _g, _b, time, sr) => {
+registerEffect("prismatic", "Prismatic", "Shifting rainbow border", (ctx, radius, r, g, b, time, sr) => {
   if (sr < 8) return;
   const segments = sr < 30 ? 12 : sr < 60 ? 18 : 24;
   const lineW = Math.max(2.5, radius * 0.035);
+
+  // Derive base hue from cell colour
+  const cmax = Math.max(r, g, b), cmin = Math.min(r, g, b);
+  let baseHue = 0;
+  if (cmax !== cmin) {
+    const d = cmax - cmin;
+    if (cmax === r) baseHue = ((g - b) / d + 6) % 6 * 60;
+    else if (cmax === g) baseHue = ((b - r) / d + 2) * 60;
+    else baseHue = ((r - g) / d + 4) * 60;
+  }
+  const baseLum = Math.max(40, Math.min(70, (cmax / 255) * 60 + 20));
 
   ctx.save();
   ctx.lineWidth = lineW;
@@ -99,11 +116,12 @@ registerEffect("prismatic", "Prismatic", "Shifting rainbow border", (ctx, radius
   for (let i = 0; i < segments; i++) {
     const a0 = (i / segments) * PI2;
     const a1 = ((i + 1) / segments) * PI2;
-    const hue = ((i / segments) * 360 + time * 120) % 360;
+    // Spread ±60° around the cell's own hue, shifting over time
+    const hue = (baseHue + (i / segments) * 120 - 60 + time * 120) % 360;
 
     ctx.beginPath();
     ctx.arc(0, 0, radius * 1.02, a0, a1);
-    ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+    ctx.strokeStyle = `hsl(${hue}, 90%, ${baseLum}%)`;
     ctx.stroke();
   }
 

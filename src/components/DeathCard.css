@@ -1,0 +1,101 @@
+.death-card-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  animation: deathFadeIn 0.3s ease-out;
+}
+
+@keyframes deathFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.death-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 2px solid #e94560;
+  border-radius: 16px;
+  padding: 32px 48px;
+  text-align: center;
+  color: #fff;
+  min-width: 320px;
+  box-shadow: 0 8px 32px rgba(233, 69, 96, 0.3);
+  animation: deathCardSlide 0.4s ease-out;
+}
+
+@keyframes deathCardSlide {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.death-card h2 {
+  margin: 0 0 20px 0;
+  font-size: 28px;
+  color: #e94560;
+  text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+}
+
+.death-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.death-stat {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.death-stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #64d2ff;
+  display: block;
+}
+
+.death-stat-label {
+  font-size: 12px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+  display: block;
+}
+
+.death-card-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.death-card-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.death-card-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.death-card-btn.primary {
+  background: #e94560;
+  color: #fff;
+}
+
+.death-card-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

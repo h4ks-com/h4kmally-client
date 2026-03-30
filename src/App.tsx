@@ -23,6 +23,7 @@ import { MultiboxIndicator } from "./components/MultiboxIndicator";
 import { ClanPanel } from "./components/ClanPanel";
 import { CustomCursor } from "./components/CustomCursor";
 import { TankLobby } from "./components/TankLobby";
+import DeathCard from "./components/DeathCard";
 import type { TankLobbyState, TankCursorInfo } from "./protocol";
 import { onBRUpdate, onBRDeath, stopAllBRSounds } from "./game/sounds";
 import "./App.css";
@@ -78,6 +79,7 @@ function GameApp() {
   const [serverBaseUrl, setServerBaseUrl] = useState("");
   const [alive, setAlive] = useState(false);
   const [showLobby, setShowLobby] = useState(true);
+  const [showDeathCard, setShowDeathCard] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -294,7 +296,12 @@ function GameApp() {
             connRef.current?.sendSpawn(sp.name, sp.skin, sp.effect);
           }, 1500);
         } else {
-          setShowLobby(true);
+          // Show death card if there are meaningful stats
+          if (gs.lastDeathStats && gs.lastDeathStats.peakMass > 0) {
+            setShowDeathCard(true);
+          } else {
+            setShowLobby(true);
+          }
         }
       },
       onLeaderboard: (entries) => {
@@ -463,8 +470,12 @@ function GameApp() {
     const onWheel = (e: WheelEvent) => {
       renderer.handleWheel(e);
     };
+    const onClick = (e: MouseEvent) => {
+      renderer.handleClick(e);
+    };
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("click", onClick);
 
     // Send mouse position to server at ~30Hz (alive or spectating)
     const interval = setInterval(() => {
@@ -480,6 +491,7 @@ function GameApp() {
     return () => {
       canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("wheel", onWheel);
+      canvas.removeEventListener("click", onClick);
       clearInterval(interval);
     };
   }, [alive]);
@@ -786,6 +798,21 @@ function GameApp() {
         <HowToPlay
           keybinds={keybinds}
           onClose={() => setShowHowToPlay(false)}
+        />
+      )}
+
+      {showDeathCard && gameStateRef.current?.lastDeathStats && (
+        <DeathCard
+          peakMass={gameStateRef.current.lastDeathStats.peakMass}
+          cellsEaten={gameStateRef.current.lastDeathStats.cellsEaten}
+          timeAlive={gameStateRef.current.lastDeathStats.timeAlive}
+          onPlayAgain={() => {
+            setShowDeathCard(false);
+            setShowLobby(true);
+          }}
+          onSpectate={() => {
+            setShowDeathCard(false);
+          }}
         />
       )}
 

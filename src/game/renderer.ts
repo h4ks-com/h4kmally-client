@@ -2,7 +2,7 @@ import { GameState } from "./state";
 import type { GameCell } from "./state";
 import type { Settings } from "./settings";
 import { getSkinFile } from "../skinFileMap";
-import { getEffect, cleanupEffectState } from "./effects";
+import { getEffect, getEffectInfo, cleanupEffectState } from "./effects";
 
 const GRID_SPACING = 50;
 const BORDER_WIDTH = 6;
@@ -30,6 +30,16 @@ interface ConfettiParticle {
   rotation: number;
   rotSpeed: number;
   alpha: number;
+}
+
+// Eat burst particle (world-space)
+interface EatBurstParticle {
+  x: number; y: number;
+  vx: number; vy: number;
+  r: number; g: number; b: number;
+  life: number;   // remaining life in seconds
+  maxLife: number; // initial life
+  size: number;    // particle radius
 }
 
 const CONFETTI_COLORS = [
@@ -106,6 +116,12 @@ export class Renderer {
   private confettiParticles: ConfettiParticle[] = [];
   private confettiActive = false;
   private confettiSpawnEnd = 0; // stop spawning after this timestamp
+
+  // Eat burst particles (world-space)
+  private eatBurstParticles: EatBurstParticle[] = [];
+
+  // Spectator tooltip (screen space — shown when clicking a cell while spectating)
+  private tooltip: { text: string; subtext: string; screenX: number; screenY: number; expires: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement, state: GameState, settings: Settings) {
     this.canvas = canvas;
@@ -430,6 +446,40 @@ export class Renderer {
     this.mouseWorldY = world.y;
   }
 
+  /** Handle click event (spectator mode: show cell info tooltip). */
+  handleClick(ev: MouseEvent) {
+    // Only show tooltips in spectator mode
+    if (this.state.myCellIds.size > 0 || this.state.multiCellIds.size > 0) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const sx = (ev.clientX - rect.left) * (this.canvas.width / rect.width);
+    const sy = (ev.clientY - rect.top) * (this.canvas.height / rect.height);
+    const world = this.screenToWorld(sx, sy);
+
+    // Find the topmost (largest) cell under the click point
+    let best: GameCell | null = null;
+    for (const cell of this.state.cells.values()) {
+      const dx = cell.x - world.x;
+      const dy = cell.y - world.y;
+      if (dx * dx + dy * dy <= cell.size * cell.size) {
+        if (!best || cell.size > best.size) best = cell;
+      }
+    }
+
+    if (best) {
+      const effectInfo = best.effect ? getEffectInfo(best.effect) : undefined;
+      const name = best.name || "(unnamed)";
+      const mass = Math.floor(best.size * best.size / 100);
+      const text = `${name}  —  Mass: ${mass}`;
+      const subtext = effectInfo
+        ? `Effect: ${effectInfo.label} (${effectInfo.category})`
+        : "No effect";
+      this.tooltip = { text, subtext, screenX: sx, screenY: sy - 20, expires: performance.now() + 3000 };
+    } else {
+      this.tooltip = null;
+    }
+  }
+
   /** Handle mouse wheel zoom. */
   handleWheel(e: WheelEvent) {
     e.preventDefault();
@@ -502,6 +552,7 @@ export class Renderer {
     if (this.settings.showBorder) this.drawBorder(ctx);
     if (this.settings.showTrails) this.drawTrails(ctx);
     this.drawCells(ctx);
+    this.updateAndDrawEatBursts(ctx);
     if (this.settings.showCursorLines) this.drawCursorLines(ctx);
     this.drawTankCursors(ctx);
 
@@ -520,6 +571,9 @@ export class Renderer {
     if (this.confettiActive || this.confettiParticles.length > 0) {
       this.updateAndDrawConfetti(ctx, cw, ch);
     }
+
+    // Spectator tooltip (screen space)
+    this.drawTooltip(ctx);
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D) {
@@ -1238,6 +1292,112 @@ export class Renderer {
     }
 
     ctx.restore();
+  }
+
+  /** Draw spectator tooltip (screen space). */
+  private drawTooltip(ctx: CanvasRenderingContext2D) {
+    if (!this.tooltip) return;
+    if (performance.now() > this.tooltip.expires) {
+      this.tooltip = null;
+      return;
+    }
+
+    const { text, subtext, screenX, screenY } = this.tooltip;
+    const alpha = Math.min(1, (this.tooltip.expires - performance.now()) / 500); // fade out last 500ms
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = "bold 14px sans-serif";
+    const tw1 = ctx.measureText(text).width;
+    ctx.font = "12px sans-serif";
+    const tw2 = ctx.measureText(subtext).width;
+    const pad = 10;
+    const boxW = Math.max(tw1, tw2) + pad * 2;
+    const boxH = 44;
+    const bx = screenX - boxW / 2;
+    const by = screenY - boxH;
+
+    // Background
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.beginPath();
+    const r = 6;
+    ctx.moveTo(bx + r, by);
+    ctx.lineTo(bx + boxW - r, by);
+    ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+    ctx.lineTo(bx + boxW, by + boxH - r);
+    ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+    ctx.lineTo(bx + r, by + boxH);
+    ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+    ctx.lineTo(bx, by + r);
+    ctx.quadraticCurveTo(bx, by, bx + r, by);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(text, screenX, by + 18);
+    ctx.fillStyle = "#aaa";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(subtext, screenX, by + 35);
+    ctx.restore();
+  }
+
+  /** Update and draw eat-burst particles (world space — called inside camera transform). */
+  private updateAndDrawEatBursts(ctx: CanvasRenderingContext2D) {
+    // Consume pending bursts from game state
+    const bursts = this.state.eatBursts;
+    for (const b of bursts) {
+      const count = Math.min(Math.floor(b.size * 0.3), 24); // scale particles with cell size
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const speed = b.size * (0.3 + Math.random() * 0.5);
+        this.eatBurstParticles.push({
+          x: b.x,
+          y: b.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: b.r,
+          g: b.g,
+          b: b.b,
+          life: 0.4 + Math.random() * 0.3,
+          maxLife: 0.7,
+          size: Math.max(2, b.size * (0.06 + Math.random() * 0.06)),
+        });
+      }
+    }
+    bursts.length = 0; // clear consumed bursts
+
+    if (this.eatBurstParticles.length === 0) return;
+
+    const dt = 1 / 60; // approximate frame time
+    const alive: EatBurstParticle[] = [];
+
+    for (const p of this.eatBurstParticles) {
+      p.life -= dt;
+      if (p.life <= 0) continue;
+
+      // Decelerate
+      p.vx *= 0.92;
+      p.vy *= 0.92;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      const alpha = Math.max(0, p.life / p.maxLife);
+      const shrink = alpha; // shrink as they fade
+      const drawR = p.size * shrink;
+
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, drawR, 0, Math.PI * 2);
+      ctx.fill();
+
+      alive.push(p);
+    }
+
+    ctx.globalAlpha = 1;
+    this.eatBurstParticles = alive;
   }
 
   /** Trigger a confetti burst celebration. */

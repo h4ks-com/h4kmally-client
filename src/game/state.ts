@@ -30,6 +30,17 @@ export interface GameCell {
   jellyVel: number[];       // velocity of each point
 }
 
+// ── Eat burst event (captured before cell deletion) ────────
+
+export interface EatBurst {
+  x: number;
+  y: number;
+  size: number;
+  r: number;
+  g: number;
+  b: number;
+}
+
 // ── Chat entry ─────────────────────────────────────────────
 
 export interface ChatEntry extends ChatMessage {
@@ -45,6 +56,7 @@ export class GameState {
   cells: Map<number, GameCell> = new Map();
   myCellIds: Set<number> = new Set();
   multiCellIds: Set<number> = new Set();
+  eatBursts: EatBurst[] = [];  // pending eat-burst particles for renderer
   border: Border = { left: -7071, top: -7071, right: 7071, bottom: 7071 };
   camera: Camera = { x: 0, y: 0, zoom: 0 };
   cameraZoom: number = 1;
@@ -57,6 +69,15 @@ export class GameState {
   score: number = 0;
   alive: boolean = false;
   spawnAccepted: boolean = false;
+
+  // Per-life session stats (reset on spawn, frozen on death)
+  sessionPeakMass: number = 0;
+  sessionCellsEaten: number = 0;
+  sessionSpawnTime: number = 0;
+  sessionTimeAlive: number = 0; // seconds, computed on death
+
+  // Last death stats (frozen copy for death card display)
+  lastDeathStats: { peakMass: number; cellsEaten: number; timeAlive: number } | null = null;
 
   get mapWidth(): number {
     return this.border.right - this.border.left;
@@ -74,6 +95,21 @@ export class GameState {
       const eatenCell = this.cells.get(eat.eatenId);
       if (eatenCell) {
         eatenCell.eatAnimProgress = 0.01; // mark as being eaten
+        // Track cells eaten by our player
+        if (this.myCellIds.has(eat.eaterId) || this.multiCellIds.has(eat.eaterId)) {
+          if (eatenCell.isPlayer) this.sessionCellsEaten++;
+        }
+        // Capture burst data before deletion
+        if (eatenCell.size >= 20) { // only burst for non-trivial cells
+          this.eatBursts.push({
+            x: eatenCell.x,
+            y: eatenCell.y,
+            size: eatenCell.size,
+            r: eatenCell.color.r,
+            g: eatenCell.color.g,
+            b: eatenCell.color.b,
+          });
+        }
       }
     }
 
@@ -146,8 +182,15 @@ export class GameState {
   }
 
   onAddMyCell(id: number) {
+    const wasAlive = this.alive;
     this.myCellIds.add(id);
     this.alive = true;
+    // Reset session stats on first spawn
+    if (!wasAlive) {
+      this.sessionPeakMass = 0;
+      this.sessionCellsEaten = 0;
+      this.sessionSpawnTime = performance.now();
+    }
     this.updateScore();
   }
 
@@ -162,6 +205,15 @@ export class GameState {
   }
 
   onClearMine() {
+    // Freeze death stats before clearing
+    if (this.sessionSpawnTime > 0) {
+      this.sessionTimeAlive = (performance.now() - this.sessionSpawnTime) / 1000;
+      this.lastDeathStats = {
+        peakMass: this.sessionPeakMass,
+        cellsEaten: this.sessionCellsEaten,
+        timeAlive: this.sessionTimeAlive,
+      };
+    }
     this.myCellIds.clear();
     this.multiCellIds.clear();
     this.alive = false;
@@ -224,6 +276,9 @@ export class GameState {
       if (c) totalMass += (c.size * c.size) / 100;
     }
     this.score = Math.round(totalMass);
+    if (this.score > this.sessionPeakMass) {
+      this.sessionPeakMass = this.score;
+    }
   }
 
   /** Compute the camera center and zoom based on own cells.
